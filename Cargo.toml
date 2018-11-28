@@ -4,3 +4,7 @@ version = "0.1.0"
 authors = ["mizdra <pp.mizdra@gmail.com>"]
 
 [dependencies]
+
+[[bin]]
+name = "shiki"
+path = "src/repl/main.rs"
