@@ -1,0 +1,6 @@
+[package]
+name = "shiki"
+version = "0.1.0"
+authors = ["mizdra <pp.mizdra@gmail.com>"]
+
+[dependencies]
