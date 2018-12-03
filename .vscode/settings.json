@@ -1,0 +1,7 @@
+{
+  "rust.build_bin": "shiki",
+  "rust.features": [
+    "repl"
+  ],
+  "rust-client.channel": "stable"
+}

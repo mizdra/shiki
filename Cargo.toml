@@ -2,9 +2,15 @@
 name = "shiki"
 version = "0.1.0"
 authors = ["mizdra <pp.mizdra@gmail.com>"]
+edition = "2018"
 
 [dependencies]
+rustyline = { version = "3.0.0", optional = true }
+
+[features]
+repl = ["rustyline"]
 
 [[bin]]
 name = "shiki"
 path = "src/repl/main.rs"
+required-features = ["repl"]
