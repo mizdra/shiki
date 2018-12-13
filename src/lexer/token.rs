@@ -7,6 +7,8 @@ pub enum Token {
 
     // Statements
     Assign,
+    If,
+    Else,
 
     // Operators
     Plus,
@@ -22,14 +24,21 @@ pub enum Token {
     LessThanEqual,
     GreaterThan,
     GreaterThanEqual,
+    AndAnd,
+    OrOr,
 
     // Delimiters
+    Comma,
     Semicolon,
     Lparen,
     Rparen,
+    Lbrace,
+    Rbrace,
+    Or,
 
     // Reseved keywords
     Let,
+    Return,
 
     // Control tokens
     Eof,

@@ -85,7 +85,10 @@ impl<'a> Lexer<'a> {
         let ident_str = &self.input[begin_pos..end_pos];
 
         match ident_str {
+            "if" => Token::If,
+            "else" => Token::Else,
             "let" => Token::Let,
+            "return" => Token::Return,
             _ => Token::Ident(ident_str.to_string()),
         }
     }
@@ -105,6 +108,23 @@ impl<'a> Lexer<'a> {
         Token::String(string_str.to_string())
     }
 
+    /// 現在のカーソル位置以降をコメントとしてスキップし, カーソルを進める
+    fn skip_comment(&mut self) {
+        // 先頭の `//` をスキップ
+        self.next_ch();
+        self.next_ch();
+        loop {
+            match self.ch {
+                0 => break,
+                b'\n' => {
+                    self.next_ch(); // 改行文字をスキップ
+                    break;
+                }
+                _ => self.next_ch(),
+            }
+        }
+    }
+
     /// 現在のカーソル位置以降を任意のトークンとして字句解析し, カーソルを進める
     pub fn next_token(&mut self) -> Token {
         self.skip_space();
@@ -119,7 +139,14 @@ impl<'a> Lexer<'a> {
             b'+' => Token::Plus,
             b'-' => Token::Minus,
             b'*' => Token::Asterisk,
-            b'/' => Token::Slash,
+            b'/' => {
+                if self.peek_ch_is(b'/') {
+                    self.skip_comment();
+                    return self.next_token();
+                } else {
+                    Token::Slash
+                }
+            }
             b'!' => {
                 if self.peek_ch_is(b'=') {
                     self.next_ch();
@@ -153,11 +180,30 @@ impl<'a> Lexer<'a> {
                     Token::GreaterThan
                 }
             }
+            b'&' => {
+                if self.peek_ch_is(b'&') {
+                    self.next_ch();
+                    Token::AndAnd
+                } else {
+                    Token::Invalid
+                }
+            }
+            b'|' => {
+                if self.peek_ch_is(b'|') {
+                    self.next_ch();
+                    Token::OrOr
+                } else {
+                    Token::Or
+                }
+            }
 
             // Delimiters
+            b',' => Token::Comma,
             b';' => Token::Semicolon,
             b'(' => Token::Lparen,
             b')' => Token::Rparen,
+            b'{' => Token::Lbrace,
+            b'}' => Token::Rbrace,
 
             // Control tokens
             0 => return Token::Eof,
@@ -179,20 +225,30 @@ mod tests {
         let program = r#"
 1 + 2+10;
 =+-*/%()<>!;
-<===!=>=;
+<===!=>=&&||;
 1++--1;
 
-let num = 1 + 2;
-let str = "Hello " + "World!";
-"#;
+// Calculate `a ** b`
+let pow = |a, b| {
+  if b <= 1 {
+    return a;
+  } else {
+    pow(a * b, b - 1)
+  }
+}
+let result = pow(3, 3);
+
+puts(result); // 27"#;
 
         let expected = vec![
+            // 1 + 2+10;
             Token::Int(1),
             Token::Plus,
             Token::Int(2),
             Token::Plus,
             Token::Int(10),
             Token::Semicolon,
+            // =+-*/%()<>!;
             Token::Assign,
             Token::Plus,
             Token::Minus,
@@ -205,11 +261,15 @@ let str = "Hello " + "World!";
             Token::GreaterThan,
             Token::Bang,
             Token::Semicolon,
+            // <===!=>=&&||;
             Token::LessThanEqual,
             Token::Equal,
             Token::NotEqual,
             Token::GreaterThanEqual,
+            Token::AndAnd,
+            Token::OrOr,
             Token::Semicolon,
+            // 1++--1;
             Token::Int(1),
             Token::Plus,
             Token::Plus,
@@ -217,19 +277,55 @@ let str = "Hello " + "World!";
             Token::Minus,
             Token::Int(1),
             Token::Semicolon,
+            // let pow = ...
             Token::Let,
-            Token::Ident("num".to_string()),
+            Token::Ident("pow".to_string()),
             Token::Assign,
+            Token::Or,
+            Token::Ident("a".to_string()),
+            Token::Comma,
+            Token::Ident("b".to_string()),
+            Token::Or,
+            Token::Lbrace,
+            Token::If,
+            Token::Ident("b".to_string()),
+            Token::LessThanEqual,
             Token::Int(1),
-            Token::Plus,
-            Token::Int(2),
+            Token::Lbrace,
+            Token::Return,
+            Token::Ident("a".to_string()),
             Token::Semicolon,
+            Token::Rbrace,
+            Token::Else,
+            Token::Lbrace,
+            Token::Ident("pow".to_string()),
+            Token::Lparen,
+            Token::Ident("a".to_string()),
+            Token::Asterisk,
+            Token::Ident("b".to_string()),
+            Token::Comma,
+            Token::Ident("b".to_string()),
+            Token::Minus,
+            Token::Int(1),
+            Token::Rparen,
+            Token::Rbrace,
+            Token::Rbrace,
+            // let result = ...
             Token::Let,
-            Token::Ident("str".to_string()),
+            Token::Ident("result".to_string()),
             Token::Assign,
-            Token::String("Hello ".to_string()),
-            Token::Plus,
-            Token::String("World!".to_string()),
+            Token::Ident("pow".to_string()),
+            Token::Lparen,
+            Token::Int(3),
+            Token::Comma,
+            Token::Int(3),
+            Token::Rparen,
+            Token::Semicolon,
+            // puts(result);
+            Token::Ident("puts".to_string()),
+            Token::Lparen,
+            Token::Ident("result".to_string()),
+            Token::Rparen,
             Token::Semicolon,
             Token::Eof,
             Token::Eof,
