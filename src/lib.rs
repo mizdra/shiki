@@ -1,1 +1,3 @@
-pub mod lexer;
+mod lexer;
+
+pub use crate::lexer::{Lexer, Token};

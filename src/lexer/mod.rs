@@ -1,19 +1,19 @@
-pub mod token;
+mod token;
 
-use crate::lexer::token::Token;
+pub use self::token::Token;
 
 pub struct Lexer<'a> {
-    input: &'a str,
-    pos: usize,
-    ch: u8,
+    input: &'a str, // 字句解析対象のソースコード
+    pos: usize,     // 今読み込まれている文字の位置
+    ch: u8,         // 今読み込まれている文字
 }
 
-impl<'a> Lexer<'a> {
+impl Lexer<'_> {
     pub fn new(input: &str) -> Lexer {
         let mut lexer = Lexer {
             input,
-            pos: 0, // 今読み込まれている文字の位置
-            ch: 0,  // 今読み込まれている文字
+            pos: 0,
+            ch: 0,
         };
 
         lexer.ch = lexer.get_ch(0);
@@ -29,6 +29,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// カーソルを1文字分進めます.
     fn next_ch(&mut self) {
         if self.ch == 0 {
             return;
@@ -37,10 +38,12 @@ impl<'a> Lexer<'a> {
         self.ch = self.get_ch(self.pos);
     }
 
+    /// 次の文字が `ch` であるなら `true` を, そうでなければ `false` を返します.
     fn peek_ch_is(&self, ch: u8) -> bool {
         self.get_ch(self.pos + 1) == ch
     }
 
+    /// 空白, タブ文字, 改行文字をスキップし, カーソルを進めます.
     fn skip_space(&mut self) {
         loop {
             match self.ch {
@@ -54,7 +57,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    /// 現在のカーソル位置以降を数値として字句解析し, カーソルを進める
+    /// 現在のカーソル位置以降を数値として字句解析し, カーソルを進めます.
     fn consume_number(&mut self) -> Token {
         let begin_pos = self.pos;
         self.next_ch(); // 先頭が数字であることは既に分かっているのでスキップ
@@ -68,8 +71,8 @@ impl<'a> Lexer<'a> {
         Token::Int(number_str.parse().unwrap())
     }
 
-    /// 現在のカーソル位置以降を識別子として字句解析し, カーソルを進める
-    fn consume_ident(&mut self) -> Token {
+    /// 現在のカーソル位置以降をキーワード (予約語/識別子) として字句解析し, カーソルを進めます.
+    fn consume_keyword(&mut self) -> Token {
         let begin_pos = self.pos;
         self.next_ch(); // 先頭が数字であることは既に分かっているのでスキップ
 
@@ -82,18 +85,18 @@ impl<'a> Lexer<'a> {
 
         let end_pos = self.pos;
 
-        let ident_str = &self.input[begin_pos..end_pos];
+        let keyword_str = &self.input[begin_pos..end_pos];
 
-        match ident_str {
+        match keyword_str {
             "if" => Token::If,
             "else" => Token::Else,
             "let" => Token::Let,
             "return" => Token::Return,
-            _ => Token::Ident(ident_str.to_string()),
+            _ => Token::Ident(keyword_str.to_string()),
         }
     }
 
-    /// 現在のカーソル位置以降を数値として字句解析し, カーソルを進める
+    /// 現在のカーソル位置以降を数値として字句解析し, カーソルを進めます.
     fn consume_string(&mut self) -> Token {
         self.next_ch(); // 先頭の `"` をスキップ
         let begin_pos = self.pos;
@@ -125,14 +128,14 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    /// 現在のカーソル位置以降を任意のトークンとして字句解析し, カーソルを進める
+    /// 現在のカーソル位置以降を任意のトークンとして字句解析し, カーソルを進めます.
     pub fn next_token(&mut self) -> Token {
         self.skip_space();
 
         let token = match self.ch {
-            // Identifiers + literals
+            // Reseved keywords + Identifiers + Literals
             b'0'...b'9' => return self.consume_number(),
-            b'a'...b'z' | b'A'...b'Z' | b'_' => return self.consume_ident(),
+            b'a'...b'z' | b'A'...b'Z' | b'_' => return self.consume_keyword(),
             b'"' => return self.consume_string(),
 
             // Statements & Operators

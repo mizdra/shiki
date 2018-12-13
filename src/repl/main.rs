@@ -1,7 +1,6 @@
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use shiki::lexer::token::Token;
-use shiki::lexer::Lexer;
+use shiki::{Lexer, Token};
 
 fn main() {
     let mut rl = Editor::<()>::new();
