@@ -39,6 +39,9 @@ impl Parser<'_> {
 
 // ident
 impl Parser<'_> {
+    /// 現在のカーソル位置以降を識別子としてパースし,
+    /// 識別子の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
     fn parse_ident(&mut self) -> Option<Ident> {
         // 借用ルールの制約により直接 return するのではなく,
         // 一度変数に格納してから bump し, 返している.
@@ -54,6 +57,9 @@ impl Parser<'_> {
 
 // expr
 impl Parser<'_> {
+    /// 現在のカーソル位置以降を式としてパースし,
+    /// 式の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
     fn parse_expr(&mut self) -> Option<Expr> {
         self.bump();
         Some(Expr::Literal(Literal::Int(1)))
@@ -62,6 +68,9 @@ impl Parser<'_> {
 
 // stmt
 impl Parser<'_> {
+    /// 現在のカーソル位置以降を代入文としてパースし,
+    /// 代入文の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
     fn parse_let_stmt(&mut self) -> Option<Stmt> {
         self.bump();
         let left = self.parse_ident()?;
@@ -73,17 +82,26 @@ impl Parser<'_> {
         Some(Stmt::Let(left, right))
     }
 
+    /// 現在のカーソル位置以降をreturn文としてパースし,
+    /// return文の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
     fn parse_return_stmt(&mut self) -> Option<Stmt> {
         self.bump();
         let expr = self.parse_expr()?;
         Some(Stmt::Return(expr))
     }
 
+    /// 現在のカーソル位置以降を式文としてパースし,
+    /// 式文の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
     fn parse_expr_stmt(&mut self) -> Option<Stmt> {
         println!("Found unsupported token: {:?}", self.cur_token);
         unimplemented!();
     }
 
+    /// 現在のカーソル位置以降を文としてパースし,
+    /// 文の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
     fn parse_stmt(&mut self) -> Option<Stmt> {
         match self.cur_token {
             Token::Let => self.parse_let_stmt(),
@@ -92,6 +110,8 @@ impl Parser<'_> {
         }
     }
 
+    /// 現在のカーソル位置以降をプログラムとしてパースし,
+    /// プログラムの最後のトークンまでカーソルを進めます.
     pub fn parse(&mut self) -> Program {
         let mut program = vec![];
 
