@@ -13,7 +13,10 @@ fn main() {
                 rl.add_history_entry(code);
 
                 let mut parser = Parser::new(Lexer::new(code));
-                println!("{:?}", parser.parse());
+                let program = parser.parse();
+                for stmt in program {
+                    println!("{}", stmt);
+                }
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => {
                 println!("bye");

@@ -3,6 +3,12 @@ use std::fmt;
 #[derive(PartialEq, Clone, Debug)]
 pub struct Ident(pub String);
 
+impl fmt::Display for Ident {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(PartialEq, Clone, Debug)]
 pub enum Prefix {
     Plus,
@@ -57,7 +63,6 @@ pub enum Expr {
     Literal(Literal),
     Prefix(Prefix, Box<Expr>),
     Infix(Infix, Box<Expr>, Box<Expr>),
-    Index(Box<Expr>, Box<Expr>),
     If {
         cond: Box<Expr>,
         consequence: BlockStmt,
@@ -73,6 +78,26 @@ pub enum Expr {
     },
 }
 
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Expr::Ident(ident) => write!(f, "{}", ident),
+            Expr::Literal(literal) => write!(f, "{}", literal),
+            Expr::Prefix(op, expr) => write!(f, "({}{})", op, expr),
+            Expr::Infix(op, left, right) => write!(f, "({} {} {})", left, op, right),
+            Expr::If {
+                cond,
+                consequence,
+                alternative,
+            } => match alternative {
+                Some(blockStmt) => write!(f, "if {} {{ ... }} ...", cond),
+                None => write!(f, "if {} {{ ... }}", cond),
+            },
+            _ => write!(f, "UNIMPLEMENTED"),
+        }
+    }
+}
+
 #[derive(PartialEq, Clone, Debug)]
 pub enum Literal {
     Int(i64),
@@ -80,11 +105,31 @@ pub enum Literal {
     Bool(bool),
 }
 
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Literal::Int(val) => write!(f, "{}", val),
+            Literal::String(val) => write!(f, "\"{}\"", val),
+            Literal::Bool(val) => write!(f, "{}", val),
+        }
+    }
+}
+
 #[derive(PartialEq, Clone, Debug)]
 pub enum Stmt {
     Let(Ident, Expr),
     Return(Expr),
     Expr(Expr),
+}
+
+impl fmt::Display for Stmt {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Stmt::Let(ident, expr) => write!(f, "let {} = {};", ident, expr),
+            Stmt::Return(expr) => write!(f, "return {};", expr),
+            Stmt::Expr(expr) => write!(f, "{};", expr),
+        }
+    }
 }
 
 pub type BlockStmt = Vec<Stmt>;

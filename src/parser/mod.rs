@@ -111,9 +111,22 @@ impl Parser<'_> {
 mod tests {
     use super::*;
 
+    fn parse_src(src: &str) -> Program {
+        let mut parser = Parser::new(Lexer::new(src));
+        parser.parse()
+    }
+
+    fn assert_expr(program: Program, expected: Vec<&str>) {
+        assert_eq!(program.len(), expected.len());
+
+        for (actual_stmt, formatted_expected_stmt) in program.iter().zip(expected) {
+            assert_eq!(format!("{}", actual_stmt), formatted_expected_stmt);
+        }
+    }
+
     #[test]
     fn test_program() {
-        let program = r#"
+        let src = r#"
 let num = 1;
 return 2;
 "#;
@@ -123,13 +136,50 @@ return 2;
             Stmt::Return(Expr::Literal(Literal::Int(1))),
         ];
 
-        let lexer = Lexer::new(program);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse();
+        let program = parse_src(src);
 
         for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
             println!("actual: {:?}, expected: {:?}", actual_stmt, expected_stmt);
             assert_eq!(actual_stmt, expected_stmt);
         }
+    }
+
+    #[test]
+    fn test_numeric_operator() {
+        let src = r#"
+// basic
+1 + 2 + 3;
+1 + 2 - 3;
+1 * 2 / 3 + 4 - 5;
+1 - 2 + 3 / 4 * 5;
+
+// paren
+1 + (2 + 3) + 4;
+1 + 2 * 3 + 4;
+
+// unary
++++---1 + ---+++2;
+-1 * 2;
+-(1 * 2);
+"#;
+
+        let expected = vec![
+            // basic
+            "((1 + 2) + 3)",
+            "((1 + 2) - 3)",
+            "((((1 * 2) / 3) + 4) - 5)",
+            "((1 - 2) + ((3 / 4) * 5))",
+            // paren
+            "((1 + (2 + 3)) + 4)",
+            "((1 + (2 * 3)) + 4)",
+            // unary
+            "((+(+(+(-(-(-1)))))) + (-(-(-(+(+(+1)))))))",
+            "((-1) * 2)",
+            "(-(1 * 2))",
+        ];
+
+        let program = parse_src(src);
+
+        assert_expr(program, expected);
     }
 }
