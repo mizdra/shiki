@@ -63,6 +63,7 @@ pub enum Expr {
     Literal(Literal),
     Prefix(Prefix, Box<Expr>),
     Infix(Infix, Box<Expr>, Box<Expr>),
+    Block(BlockStmt),
     If {
         cond: Box<Expr>,
         consequence: BlockStmt,
@@ -70,7 +71,7 @@ pub enum Expr {
     },
     Func {
         params: Vec<Ident>,
-        body: BlockStmt,
+        body: Box<Expr>,
     },
     Call {
         func: Box<Expr>,
@@ -90,7 +91,7 @@ impl fmt::Display for Expr {
                 consequence,
                 alternative,
             } => match alternative {
-                Some(blockStmt) => write!(f, "if {} {{ ... }} ...", cond),
+                Some(block_stmt) => write!(f, "if {} {{ ... }} ...", cond),
                 None => write!(f, "if {} {{ ... }}", cond),
             },
             _ => write!(f, "UNIMPLEMENTED"),

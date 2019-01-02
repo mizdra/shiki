@@ -26,6 +26,33 @@ impl Parser<'_> {
         self.next_token = self.lexer.next_token();
     }
 
+    fn expect(&mut self, token: Token) -> Option<()> {
+        if self.cur_token_is(token) {
+            self.bump();
+            Some(())
+        } else {
+            None // TODO: エラー報告
+        }
+    }
+
+    fn expect_next(&mut self, token: Token) -> Option<()> {
+        if self.next_token_is(token) {
+            self.bump();
+            Some(())
+        } else {
+            None // TODO: エラー報告
+        }
+    }
+
+    fn eat(&mut self, token: Token) -> bool {
+        if self.cur_token_is(token) {
+            self.bump();
+            true
+        } else {
+            false
+        }
+    }
+
     fn cur_token_is(&self, token: Token) -> bool {
         self.cur_token == token
     }
@@ -70,12 +97,45 @@ impl Parser<'_> {
         // 借用ルールの制約により直接 return するのではなく,
         // 一度変数に格納してから bump し, 返している.
         // Note: NLL が安定化されたら直接 return で返せるようになるはず.
-        let ident = match self.cur_token {
+        match self.cur_token {
             Token::Ident(ref mut ident) => Some(Ident(ident.clone())),
             _ => return None,
-        };
-        self.bump();
-        ident
+        }
+    }
+
+    /// 現在のカーソル位置以降をパラメータリストとしてパースし,
+    /// 識別子の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
+    fn parse_params(&mut self) -> Option<Vec<Ident>> {
+        if self.cur_token_is(Token::OrOr) {
+            return Some(vec![]);
+        }
+
+        self.expect(Token::Or)?;
+
+        let mut params = vec![];
+        while !self.cur_token_is(Token::Or) {
+            params.push(self.parse_ident()?);
+            self.bump();
+            self.eat(Token::Comma);
+        }
+        Some(params)
+    }
+
+    /// 現在のカーソル位置以降を式のリストとしてパースし,
+    /// 識別子の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
+    fn parse_expr_list(&mut self, open_delim: Token, close_delim: Token) -> Option<Vec<Expr>> {
+        self.expect(open_delim)?;
+
+        let mut list = vec![];
+        while !self.cur_token_is(close_delim.clone()) {
+            list.push(self.parse_expr(Precedence::Lowest)?);
+            self.bump();
+            self.eat(Token::Comma);
+        }
+
+        Some(list)
     }
 }
 
@@ -172,6 +232,45 @@ impl Parser<'_> {
         }
     }
 
+    /// 現在のカーソル位置以降をラムダ式呼び出しとしてパースし,
+    /// 式の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
+    fn parse_call_expr(&mut self, left: Expr) -> Option<Expr> {
+        let args = self.parse_expr_list(Token::Lparen, Token::Rparen)?;
+
+        Some(Expr::Call {
+            func: Box::new(left),
+            args,
+        })
+    }
+
+    /// 現在のカーソル位置以降をブロック式としてパースし,
+    /// 式の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
+    fn parse_block_expr(&mut self) -> Option<Expr> {
+        let block_stmt = self.parse_block_stmt()?;
+        Some(Expr::Block(block_stmt))
+    }
+
+    /// 現在のカーソル位置以降をラムダ式としてパースし,
+    /// 式の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
+    fn parse_lambda_expr(&mut self) -> Option<Expr> {
+        let params = match self.cur_token {
+            Token::Or | Token::OrOr => self.parse_params()?,
+            _ => return None, // TODO: エラー報告
+        };
+
+        self.bump();
+
+        let body = self.parse_expr(Precedence::Lowest)?;
+
+        Some(Expr::Func {
+            params,
+            body: Box::new(body),
+        })
+    }
+
     /// 現在のカーソル位置以降を式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
@@ -185,6 +284,8 @@ impl Parser<'_> {
             Token::String(_) => self.parse_string_expr()?,
             Token::Bang | Token::Plus | Token::Minus => self.parse_prefix_expr()?,
             Token::Lparen => self.parse_grouped_expr()?,
+            Token::Lbrace => self.parse_block_expr()?,
+            Token::Or | Token::OrOr => self.parse_lambda_expr()?,
             _ => {
                 // TODO: エラー報告
                 return None;
@@ -210,6 +311,10 @@ impl Parser<'_> {
                     self.bump();
                     left = self.parse_infix_expr(left)?;
                 }
+                Token::Lparen => {
+                    self.bump();
+                    left = self.parse_call_expr(left)?;
+                }
                 // 中置演算子としてパースできないので return して呼び出し元に任せる
                 _ => return Some(left),
             }
@@ -225,13 +330,12 @@ impl Parser<'_> {
     /// 代入文の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
     fn parse_let_stmt(&mut self) -> Option<Stmt> {
-        self.bump();
+        self.expect(Token::Let)?;
         let left = self.parse_ident()?;
-        if !self.cur_token_is(Token::Assign) {
-            return None;
-        }
         self.bump();
+        self.expect(Token::Assign)?;
         let right = self.parse_expr(Precedence::Lowest)?;
+        self.expect_next(Token::Semicolon)?;
         Some(Stmt::Let(left, right))
     }
 
@@ -241,6 +345,9 @@ impl Parser<'_> {
     fn parse_return_stmt(&mut self) -> Option<Stmt> {
         self.bump();
         let expr = self.parse_expr(Precedence::Lowest)?;
+        if self.next_token_is(Token::Semicolon) {
+            self.bump();
+        }
         Some(Stmt::Return(expr))
     }
 
@@ -264,6 +371,16 @@ impl Parser<'_> {
             Token::Return => self.parse_return_stmt(),
             _ => self.parse_expr_stmt(),
         }
+    }
+
+    fn parse_block_stmt(&mut self) -> Option<Vec<Stmt>> {
+        self.expect(Token::Lbrace)?;
+        let mut result = vec![];
+        while !self.cur_token_is(Token::Rbrace) {
+            result.push(self.parse_stmt()?);
+            self.bump();
+        }
+        Some(result)
     }
 
     /// 現在のカーソル位置以降をプログラムとしてパースし,
@@ -357,5 +474,111 @@ return 2;
         let program = parse_src(src);
 
         assert_expr(program, expected);
+    }
+
+    #[test]
+    fn test_fn_expr() {
+        let src = r#"
+// implementation expression
+|| {
+    return 0;
+};
+|| {
+    0
+};
+|| 0;
+|x| 0;
+|x,| 0;
+|a, b| 0;
+|a, b,| 0;
+
+// first-class object
+let val = || 0;
+
+// call expression
+(|| 0)(1);
+func(1)(2);
+add(1, 2);
+add(1, 2, );
+"#;
+
+        let expected = vec![
+            // implementation expression
+            Stmt::Expr(Expr::Func {
+                params: vec![],
+                body: Box::new(Expr::Block(vec![Stmt::Return(Expr::Literal(
+                    Literal::Int(0),
+                ))])),
+            }),
+            Stmt::Expr(Expr::Func {
+                params: vec![],
+                body: Box::new(Expr::Block(vec![Stmt::Expr(Expr::Literal(Literal::Int(
+                    0,
+                )))])),
+            }),
+            Stmt::Expr(Expr::Func {
+                params: vec![],
+                body: Box::new(Expr::Literal(Literal::Int(0))),
+            }),
+            Stmt::Expr(Expr::Func {
+                params: vec![Ident("x".to_string())],
+                body: Box::new(Expr::Literal(Literal::Int(0))),
+            }),
+            Stmt::Expr(Expr::Func {
+                params: vec![Ident("x".to_string())],
+                body: Box::new(Expr::Literal(Literal::Int(0))),
+            }),
+            Stmt::Expr(Expr::Func {
+                params: vec![Ident("a".to_string()), Ident("b".to_string())],
+                body: Box::new(Expr::Literal(Literal::Int(0))),
+            }),
+            Stmt::Expr(Expr::Func {
+                params: vec![Ident("a".to_string()), Ident("b".to_string())],
+                body: Box::new(Expr::Literal(Literal::Int(0))),
+            }),
+            // first-class object
+            Stmt::Let(
+                Ident("val".to_string()),
+                Expr::Func {
+                    params: vec![],
+                    body: Box::new(Expr::Literal(Literal::Int(0))),
+                },
+            ),
+            // call expression
+            Stmt::Expr(Expr::Call {
+                func: Box::new(Expr::Func {
+                    params: vec![],
+                    body: Box::new(Expr::Literal(Literal::Int(0))),
+                }),
+                args: vec![Expr::Literal(Literal::Int(1))],
+            }),
+            Stmt::Expr(Expr::Call {
+                func: Box::new(Expr::Call {
+                    func: Box::new(Expr::Ident(Ident("func".to_string()))),
+                    args: vec![Expr::Literal(Literal::Int(1))],
+                }),
+                args: vec![Expr::Literal(Literal::Int(2))],
+            }),
+            Stmt::Expr(Expr::Call {
+                func: Box::new(Expr::Ident(Ident("add".to_string()))),
+                args: vec![
+                    Expr::Literal(Literal::Int(1)),
+                    Expr::Literal(Literal::Int(2)),
+                ],
+            }),
+            Stmt::Expr(Expr::Call {
+                func: Box::new(Expr::Ident(Ident("add".to_string()))),
+                args: vec![
+                    Expr::Literal(Literal::Int(1)),
+                    Expr::Literal(Literal::Int(2)),
+                ],
+            }),
+        ];
+
+        let program = parse_src(src);
+
+        for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
+            assert_eq!(actual_stmt, expected_stmt);
+        }
     }
 }
