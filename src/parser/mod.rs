@@ -260,6 +260,38 @@ impl Parser<'_> {
         })
     }
 
+    /// 現在のカーソル位置以降をif式としてパースし,
+    /// 式の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `if` であるとする)
+    fn parse_if_expr(&mut self) -> Option<Expr> {
+        self.bump(); // skip `if`
+
+        let cond = Box::new(self.parse_expr(Precedence::Lowest)?);
+        self.bump();
+        let consequence = self.parse_block_stmt()?;
+
+        let alternative = if self.next_token_is(Token::Else) {
+            // } else if <expr> <block_stmt>
+            // ^ cur_token
+
+            self.bump(); // skip `}`
+            self.bump(); // skip `else`
+            if self.cur_token_is(Token::If) {
+                Some(vec![Stmt::Expr(self.parse_if_expr()?)])
+            } else {
+                Some(self.parse_block_stmt()?)
+            }
+        } else {
+            None
+        };
+        Some(Expr::If {
+            cond,
+            consequence,
+            alternative,
+        })
+    }
+
     /// 現在のカーソル位置以降を式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
@@ -275,6 +307,7 @@ impl Parser<'_> {
             Token::Lparen => self.parse_grouped_expr()?,
             Token::Lbrace => self.parse_block_expr()?,
             Token::Or | Token::OrOr => self.parse_lambda_expr()?,
+            Token::If => self.parse_if_expr()?,
             _ => return None, // TODO: エラー報告
         };
 
@@ -560,6 +593,54 @@ add(1, 2, );
                     Expr::Literal(Literal::Int(1)),
                     Expr::Literal(Literal::Int(2)),
                 ],
+            }),
+        ];
+
+        let program = parse_src(src);
+
+        for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
+            assert_eq!(actual_stmt, expected_stmt);
+        }
+    }
+
+    #[test]
+    fn test_if_expr() {
+        let src = r#"
+if 1 { 10; };
+if 1 { 10; } else      { 20; };
+if 1 { 10; } else if 2 { 20; };
+if 1 { 10; } else if 2 { 20; } else { 30; };
+"#;
+
+        let expected = vec![
+            // implementation expression
+            Stmt::Expr(Expr::If {
+                cond: Box::new(Expr::Literal(Literal::Int(1))),
+                consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
+                alternative: None,
+            }),
+            Stmt::Expr(Expr::If {
+                cond: Box::new(Expr::Literal(Literal::Int(1))),
+                consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
+                alternative: Some(vec![Stmt::Expr(Expr::Literal(Literal::Int(20)))]),
+            }),
+            Stmt::Expr(Expr::If {
+                cond: Box::new(Expr::Literal(Literal::Int(1))),
+                consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
+                alternative: Some(vec![Stmt::Expr(Expr::If {
+                    cond: Box::new(Expr::Literal(Literal::Int(2))),
+                    consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(20)))],
+                    alternative: None,
+                })]),
+            }),
+            Stmt::Expr(Expr::If {
+                cond: Box::new(Expr::Literal(Literal::Int(1))),
+                consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
+                alternative: Some(vec![Stmt::Expr(Expr::If {
+                    cond: Box::new(Expr::Literal(Literal::Int(2))),
+                    consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(20)))],
+                    alternative: Some(vec![Stmt::Expr(Expr::Literal(Literal::Int(30)))]),
+                })]),
             }),
         ];
 
