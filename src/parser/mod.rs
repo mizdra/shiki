@@ -53,6 +53,15 @@ impl Parser<'_> {
         }
     }
 
+    fn eat_next(&mut self, token: Token) -> bool {
+        if self.next_token_is(token) {
+            self.bump();
+            true
+        } else {
+            false
+        }
+    }
+
     fn cur_token_is(&self, token: Token) -> bool {
         self.cur_token == token
     }
@@ -80,12 +89,6 @@ impl Parser<'_> {
     fn next_token_precedence(&self) -> Precedence {
         Self::token_precedence_is(&self.next_token)
     }
-
-    fn skip_semicolons(&mut self) {
-        while self.cur_token_is(Token::Semicolon) {
-            self.bump();
-        }
-    }
 }
 
 // ident
@@ -106,13 +109,12 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降をパラメータリストとしてパースし,
     /// 識別子の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `|` または `||` であるとする)
     fn parse_params(&mut self) -> Option<Vec<Ident>> {
         if self.cur_token_is(Token::OrOr) {
             return Some(vec![]);
         }
-
-        self.expect(Token::Or)?;
-
+        self.bump(); // skip `|`
         let mut params = vec![];
         while !self.cur_token_is(Token::Or) {
             params.push(self.parse_ident()?);
@@ -125,16 +127,15 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降を式のリストとしてパースし,
     /// 識別子の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
-    fn parse_expr_list(&mut self, open_delim: Token, close_delim: Token) -> Option<Vec<Expr>> {
-        self.expect(open_delim)?;
-
+    /// (ただし `cur_token` が `(` であるとする)
+    fn parse_expr_list(&mut self) -> Option<Vec<Expr>> {
+        self.bump();
         let mut list = vec![];
-        while !self.cur_token_is(close_delim.clone()) {
+        while !self.cur_token_is(Token::Rparen) {
             list.push(self.parse_expr(Precedence::Lowest)?);
             self.bump();
             self.eat(Token::Comma);
         }
-
         Some(list)
     }
 }
@@ -145,7 +146,7 @@ impl Parser<'_> {
     /// 識別子式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
     fn parse_ident_expr(&mut self) -> Option<Expr> {
-        let ident = self.parse_ident()?; // TODO: エラー報告
+        let ident = self.parse_ident()?;
         Some(Expr::Ident(ident))
     }
 
@@ -179,7 +180,7 @@ impl Parser<'_> {
             Token::Bang => Prefix::Not,
             Token::Plus => Prefix::Plus,
             Token::Minus => Prefix::Minus,
-            _ => return None,
+            _ => return None, // TODO: エラー報告
         };
         self.bump();
         let expr = self.parse_expr(Precedence::Prefix)?;
@@ -189,16 +190,12 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降を括弧による式としてパースし,
     /// 括弧による式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `(` であるとする)
     fn parse_grouped_expr(&mut self) -> Option<Expr> {
         self.bump();
         let expr = self.parse_expr(Precedence::Lowest)?;
-        if self.next_token_is(Token::Rparen) {
-            self.bump();
-            Some(expr)
-        } else {
-            // TODO: エラー報告
-            None
-        }
+        self.expect_next(Token::Rparen)?;
+        Some(expr)
     }
 
     /// 現在のカーソル位置が中置演算子の式としてパースし,
@@ -218,25 +215,21 @@ impl Parser<'_> {
             Token::LessThanEqual => Infix::LessThanEqual,
             Token::GreaterThan => Infix::GreaterThan,
             Token::GreaterThanEqual => Infix::GreaterThanEqual,
-            // TODO: エラー報告
-            _ => return None,
+            _ => return None, // TODO: エラー報告
         };
-
         let precedence = self.cur_token_precedence();
-
         self.bump();
 
-        match self.parse_expr(precedence) {
-            Some(expr) => Some(Expr::Infix(infix, Box::new(left), Box::new(expr))),
-            None => None,
-        }
+        let expr = self.parse_expr(precedence)?;
+        Some(Expr::Infix(infix, Box::new(left), Box::new(expr)))
     }
 
     /// 現在のカーソル位置以降をラムダ式呼び出しとしてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `(` であるとする)
     fn parse_call_expr(&mut self, left: Expr) -> Option<Expr> {
-        let args = self.parse_expr_list(Token::Lparen, Token::Rparen)?;
+        let args = self.parse_expr_list()?;
 
         Some(Expr::Call {
             func: Box::new(left),
@@ -247,6 +240,7 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降をブロック式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `{` であるとする)
     fn parse_block_expr(&mut self) -> Option<Expr> {
         let block_stmt = self.parse_block_stmt()?;
         Some(Expr::Block(block_stmt))
@@ -255,16 +249,11 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降をラムダ式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `|` または `||` であるとする)
     fn parse_lambda_expr(&mut self) -> Option<Expr> {
-        let params = match self.cur_token {
-            Token::Or | Token::OrOr => self.parse_params()?,
-            _ => return None, // TODO: エラー報告
-        };
-
+        let params = self.parse_params()?;
         self.bump();
-
         let body = self.parse_expr(Precedence::Lowest)?;
-
         Some(Expr::Func {
             params,
             body: Box::new(body),
@@ -286,10 +275,7 @@ impl Parser<'_> {
             Token::Lparen => self.parse_grouped_expr()?,
             Token::Lbrace => self.parse_block_expr()?,
             Token::Or | Token::OrOr => self.parse_lambda_expr()?,
-            _ => {
-                // TODO: エラー報告
-                return None;
-            }
+            _ => return None, // TODO: エラー報告
         };
 
         // 次の演算子/トークン (`next_token`) の左結合力が現在の右結合力よりも高い場合は,
@@ -329,8 +315,9 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降を代入文としてパースし,
     /// 代入文の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `let` であるとする)
     fn parse_let_stmt(&mut self) -> Option<Stmt> {
-        self.expect(Token::Let)?;
+        self.bump();
         let left = self.parse_ident()?;
         self.bump();
         self.expect(Token::Assign)?;
@@ -342,12 +329,11 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降をreturn文としてパースし,
     /// return文の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `return` であるとする)
     fn parse_return_stmt(&mut self) -> Option<Stmt> {
         self.bump();
         let expr = self.parse_expr(Precedence::Lowest)?;
-        if self.next_token_is(Token::Semicolon) {
-            self.bump();
-        }
+        self.eat_next(Token::Semicolon);
         Some(Stmt::Return(expr))
     }
 
@@ -356,9 +342,7 @@ impl Parser<'_> {
     /// パースに失敗した場合は None を返します.
     fn parse_expr_stmt(&mut self) -> Option<Stmt> {
         let expr = self.parse_expr(Precedence::Lowest)?;
-        if self.next_token_is(Token::Semicolon) {
-            self.bump();
-        }
+        self.eat_next(Token::Semicolon);
         Some(Stmt::Expr(expr))
     }
 
@@ -373,8 +357,12 @@ impl Parser<'_> {
         }
     }
 
+    /// 現在のカーソル位置以降を複文としてパースし,
+    /// 文の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `{` であるとする)
     fn parse_block_stmt(&mut self) -> Option<Vec<Stmt>> {
-        self.expect(Token::Lbrace)?;
+        self.bump();
         let mut result = vec![];
         while !self.cur_token_is(Token::Rbrace) {
             result.push(self.parse_stmt()?);
@@ -391,7 +379,7 @@ impl Parser<'_> {
         while !self.cur_token_is(Token::Eof) {
             match self.parse_stmt() {
                 Some(stmt) => program.push(stmt),
-                None => {}
+                None => {} // TODO: エラー復帰
             }
             self.bump();
         }
@@ -477,9 +465,9 @@ return 2;
     }
 
     #[test]
-    fn test_fn_expr() {
+    fn test_lambda_expr() {
         let src = r#"
-// implementation expression
+// lambda expression
 || {
     return 0;
 };

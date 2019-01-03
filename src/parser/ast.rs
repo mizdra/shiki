@@ -88,10 +88,10 @@ impl fmt::Display for Expr {
             Expr::Infix(op, left, right) => write!(f, "({} {} {})", left, op, right),
             Expr::If {
                 cond,
-                consequence,
+                consequence: _,
                 alternative,
             } => match alternative {
-                Some(block_stmt) => write!(f, "if {} {{ ... }} ...", cond),
+                Some(_block_stmt) => write!(f, "if {} {{ ... }} ...", cond),
                 None => write!(f, "if {} {{ ... }}", cond),
             },
             _ => write!(f, "UNIMPLEMENTED"),
