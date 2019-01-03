@@ -507,6 +507,7 @@ return 2;
 
         let program = parse_src(src);
 
+        assert_eq!(program.len(), expected.len());
         assert_expr(program, expected);
     }
 
@@ -611,6 +612,7 @@ add(1, 2, );
 
         let program = parse_src(src);
 
+        assert_eq!(program.len(), expected.len());
         for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
             assert_eq!(actual_stmt, expected_stmt);
         }
@@ -659,6 +661,7 @@ if 1 { 10; } else if 2 { 20; } else { 30; };
 
         let program = parse_src(src);
 
+        assert_eq!(program.len(), expected.len());
         for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
             assert_eq!(actual_stmt, expected_stmt);
         }
@@ -682,6 +685,7 @@ while 1 {
 
         let program = parse_src(src);
 
+        assert_eq!(program.len(), expected.len());
         for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
             assert_eq!(actual_stmt, expected_stmt);
         }
