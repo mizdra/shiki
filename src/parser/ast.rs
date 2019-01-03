@@ -77,6 +77,7 @@ pub enum Expr {
         func: Box<Expr>,
         args: Vec<Expr>,
     },
+    While(Box<Expr>, BlockStmt),
 }
 
 impl fmt::Display for Expr {

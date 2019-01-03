@@ -292,6 +292,18 @@ impl Parser<'_> {
         })
     }
 
+    /// 現在のカーソル位置以降をwhile式としてパースし,
+    /// 式の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `while` であるとする)
+    fn parse_while_expr(&mut self) -> Option<Expr> {
+        self.bump(); // skip `while`
+        let cond = Box::new(self.parse_expr(Precedence::Lowest)?);
+        self.bump();
+        let body = self.parse_block_stmt()?;
+        Some(Expr::While(cond, body))
+    }
+
     /// 現在のカーソル位置以降を式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
@@ -308,6 +320,7 @@ impl Parser<'_> {
             Token::Lbrace => self.parse_block_expr()?,
             Token::Or | Token::OrOr => self.parse_lambda_expr()?,
             Token::If => self.parse_if_expr()?,
+            Token::While => self.parse_while_expr()?,
             _ => return None, // TODO: エラー報告
         };
 
@@ -642,6 +655,29 @@ if 1 { 10; } else if 2 { 20; } else { 30; };
                     alternative: Some(vec![Stmt::Expr(Expr::Literal(Literal::Int(30)))]),
                 })]),
             }),
+        ];
+
+        let program = parse_src(src);
+
+        for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
+            assert_eq!(actual_stmt, expected_stmt);
+        }
+    }
+
+    #[test]
+    fn test_while_expr() {
+        let src = r#"
+while 1 {
+    10;
+};
+"#;
+
+        let expected = vec![
+            // implementation expression
+            Stmt::Expr(Expr::While(
+                Box::new(Expr::Literal(Literal::Int(1))),
+                vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
+            )),
         ];
 
         let program = parse_src(src);
