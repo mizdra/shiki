@@ -96,13 +96,12 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降を識別子としてパースし,
     /// 識別子の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `Ident` であるとする)
     fn parse_ident(&mut self) -> Option<Ident> {
-        // 借用ルールの制約により直接 return するのではなく,
-        // 一度変数に格納してから bump し, 返している.
-        // Note: NLL が安定化されたら直接 return で返せるようになるはず.
-        match self.cur_token {
-            Token::Ident(ref mut ident) => Some(Ident(ident.clone())),
-            _ => return None,
+        if let Token::Ident(ref ident) = self.cur_token {
+            Some(Ident(ident.clone()))
+        } else {
+            panic!();
         }
     }
 
@@ -145,6 +144,7 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降を識別子式としてパースし,
     /// 識別子式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `Ident` であるとする)
     fn parse_ident_expr(&mut self) -> Option<Expr> {
         let ident = self.parse_ident()?;
         Some(Expr::Ident(ident))
@@ -153,22 +153,24 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降を整数リテラル式としてパースし,
     /// 整数リテラル式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `Int` であるとする)
     fn parse_int_expr(&mut self) -> Option<Expr> {
         if let Token::Int(int) = self.cur_token {
             Some(Expr::Literal(Literal::Int(int)))
         } else {
-            None // TODO: エラー報告
+            panic!();
         }
     }
 
     /// 現在のカーソル位置以降を文字列式としてパースし,
     /// 文字列式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `String` であるとする)
     fn parse_string_expr(&mut self) -> Option<Expr> {
         if let Token::String(ref string) = self.cur_token {
             Some(Expr::Literal(Literal::String(string.clone())))
         } else {
-            None // TODO: エラー報告
+            panic!();
         }
     }
 
@@ -187,12 +189,13 @@ impl Parser<'_> {
     /// 現在のカーソル位置以降を単項演算子の式としてパースし,
     /// 単項演算子の式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `Prefix::*` であるとする)
     fn parse_prefix_expr(&mut self) -> Option<Expr> {
         let prefix = match self.cur_token {
             Token::Bang => Prefix::Not,
             Token::Plus => Prefix::Plus,
             Token::Minus => Prefix::Minus,
-            _ => return None, // TODO: エラー報告
+            _ => panic!(),
         };
         self.bump();
         let expr = self.parse_expr(Precedence::Prefix)?;
@@ -215,6 +218,7 @@ impl Parser<'_> {
     /// パースに失敗した場合は None を返します.
     /// 現在のカーソル位置が中置演算子でない場合など,
     /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `Infix::*` であるとする)
     fn parse_infix_expr(&mut self, left: Expr) -> Option<Expr> {
         let infix = match self.cur_token {
             Token::Plus => Infix::Plus,
@@ -227,7 +231,7 @@ impl Parser<'_> {
             Token::LessThanEqual => Infix::LessThanEqual,
             Token::GreaterThan => Infix::GreaterThan,
             Token::GreaterThanEqual => Infix::GreaterThanEqual,
-            _ => return None, // TODO: エラー報告
+            _ => panic!(),
         };
         let precedence = self.cur_token_precedence();
         self.bump();
@@ -360,7 +364,7 @@ impl Parser<'_> {
                     self.bump();
                     left = self.parse_call_expr(left)?;
                 }
-                // 中置演算子としてパースできないので return して呼び出し元に任せる
+                // return して呼び出し元に残りのトークンのパースを任せる
                 _ => return Some(left),
             }
         }
