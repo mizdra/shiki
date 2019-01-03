@@ -90,6 +90,7 @@ impl Lexer<'_> {
         match keyword_str {
             "if" => Token::If,
             "else" => Token::Else,
+            "while" => Token::While,
             "let" => Token::Let,
             "return" => Token::Return,
             _ => Token::Ident(keyword_str.to_string()),
@@ -231,6 +232,12 @@ mod tests {
 <===!=>=&&||;
 1++--1;
 
+let sum = 0;
+while sum < 10 {
+   sum = sum + 1;
+}
+puts(sum); // 10
+
 // Calculate `a ** b`
 let pow = |a, b| {
   if b <= 1 {
@@ -279,6 +286,31 @@ puts(result); // 27"#;
             Token::Minus,
             Token::Minus,
             Token::Int(1),
+            Token::Semicolon,
+            // let sum = 0;
+            Token::Let,
+            Token::Ident("sum".to_string()),
+            Token::Assign,
+            Token::Int(0),
+            Token::Semicolon,
+            // while sum < 10 { ... }
+            Token::While,
+            Token::Ident("sum".to_string()),
+            Token::LessThan,
+            Token::Int(10),
+            Token::Lbrace,
+            Token::Ident("sum".to_string()),
+            Token::Assign,
+            Token::Ident("sum".to_string()),
+            Token::Plus,
+            Token::Int(1),
+            Token::Semicolon,
+            Token::Rbrace,
+            // puts(sum);
+            Token::Ident("puts".to_string()),
+            Token::Lparen,
+            Token::Ident("sum".to_string()),
+            Token::Rparen,
             Token::Semicolon,
             // let pow = ...
             Token::Let,

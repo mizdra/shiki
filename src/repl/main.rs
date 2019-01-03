@@ -1,6 +1,6 @@
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use shiki::{Lexer, Token};
+use shiki::{Lexer, Parser};
 
 fn main() {
     let mut rl = Editor::<()>::new();
@@ -11,16 +11,12 @@ fn main() {
             Ok(line) => {
                 let code = line.as_ref();
                 rl.add_history_entry(code);
-                let mut lexer = Lexer::new(code);
 
-                let mut tokens = vec![];
-                loop {
-                    match lexer.next_token() {
-                        Token::Eof => break,
-                        token => tokens.push(token),
-                    }
+                let mut parser = Parser::new(Lexer::new(code));
+                let program = parser.parse();
+                for stmt in program {
+                    println!("{}", stmt);
                 }
-                println!("{:?}", tokens);
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => {
                 println!("bye");
