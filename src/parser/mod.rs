@@ -172,6 +172,18 @@ impl Parser<'_> {
         }
     }
 
+    /// 現在のカーソル位置以降を真偽値式としてパースし,
+    /// 式の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `Bool` であるとする)
+    fn parse_bool_expr(&mut self) -> Option<Expr> {
+        if let Token::Bool(value) = self.cur_token {
+            Some(Expr::Literal(Literal::Bool(value)))
+        } else {
+            panic!();
+        }
+    }
+
     /// 現在のカーソル位置以降を単項演算子の式としてパースし,
     /// 単項演算子の式の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
@@ -315,6 +327,7 @@ impl Parser<'_> {
             Token::Ident(_) => self.parse_ident_expr()?,
             Token::Int(_) => self.parse_int_expr()?,
             Token::String(_) => self.parse_string_expr()?,
+            Token::Bool(_) => self.parse_bool_expr()?,
             Token::Bang | Token::Plus | Token::Minus => self.parse_prefix_expr()?,
             Token::Lparen => self.parse_grouped_expr()?,
             Token::Lbrace => self.parse_block_expr()?,
@@ -465,6 +478,31 @@ return 2;
 
         let program = parse_src(src);
 
+        for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
+            println!("actual: {:?}, expected: {:?}", actual_stmt, expected_stmt);
+            assert_eq!(actual_stmt, expected_stmt);
+        }
+    }
+
+    #[test]
+    fn test_literal() {
+        let src = r#"
+0;
+"str";
+true;
+false;
+"#;
+
+        let expected = vec![
+            Stmt::Expr(Expr::Literal(Literal::Int(0))),
+            Stmt::Expr(Expr::Literal(Literal::String("str".to_string()))),
+            Stmt::Expr(Expr::Literal(Literal::Bool(true))),
+            Stmt::Expr(Expr::Literal(Literal::Bool(false))),
+        ];
+
+        let program = parse_src(src);
+
+        assert_eq!(program.len(), expected.len());
         for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
             println!("actual: {:?}, expected: {:?}", actual_stmt, expected_stmt);
             assert_eq!(actual_stmt, expected_stmt);

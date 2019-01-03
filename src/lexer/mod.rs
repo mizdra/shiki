@@ -91,6 +91,8 @@ impl Lexer<'_> {
             "if" => Token::If,
             "else" => Token::Else,
             "while" => Token::While,
+            "true" => Token::Bool(true),
+            "false" => Token::Bool(false),
             "let" => Token::Let,
             "return" => Token::Return,
             _ => Token::Ident(keyword_str.to_string()),
@@ -227,8 +229,9 @@ mod tests {
     #[test]
     fn test_program() {
         let program = r#"
+val 1 "str" true false;
 1 + 2+10;
-=+-*/%()<>!;
+=+-*/%(){}<>!;
 <===!=>=&&||;
 1++--1;
 
@@ -251,6 +254,13 @@ let result = pow(3, 3);
 puts(result); // 27"#;
 
         let expected = vec![
+            // val 1 "str" true false;
+            Token::Ident("val".to_string()),
+            Token::Int(1),
+            Token::String("str".to_string()),
+            Token::Bool(true),
+            Token::Bool(false),
+            Token::Semicolon,
             // 1 + 2+10;
             Token::Int(1),
             Token::Plus,
@@ -258,7 +268,7 @@ puts(result); // 27"#;
             Token::Plus,
             Token::Int(10),
             Token::Semicolon,
-            // =+-*/%()<>!;
+            // =+-*/%(){}<>!;
             Token::Assign,
             Token::Plus,
             Token::Minus,
@@ -267,6 +277,8 @@ puts(result); // 27"#;
             Token::Percent,
             Token::Lparen,
             Token::Rparen,
+            Token::Lbrace,
+            Token::Rbrace,
             Token::LessThan,
             Token::GreaterThan,
             Token::Bang,

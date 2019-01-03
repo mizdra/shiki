@@ -4,6 +4,7 @@ pub enum Token {
     Ident(String),
     Int(i64),
     String(String),
+    Bool(bool),
 
     // Statements
     Assign,
