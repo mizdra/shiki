@@ -1,5 +1,9 @@
+mod error;
+mod evaluator;
 mod lexer;
 mod parser;
 
-pub use self::lexer::{Lexer, Token};
-pub use self::parser::{ast, Parser};
+pub use self::error::*;
+pub use self::evaluator::*;
+pub use self::lexer::*;
+pub use self::parser::*;

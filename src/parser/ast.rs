@@ -1,5 +1,9 @@
 use std::fmt;
 
+trait Operator {}
+impl Operator for Prefix {}
+impl Operator for Infix {}
+
 #[derive(PartialEq, Clone, Debug)]
 pub struct Ident(pub String);
 

@@ -1,9 +1,10 @@
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use shiki::{Lexer, Parser};
+use shiki::{Evaluator, Lexer, Parser};
 
 fn main() {
     let mut rl = Editor::<()>::new();
+    let mut evaluator = Evaluator::new();
 
     loop {
         let readline = rl.readline("\x1b[34m>> \x1b[0m");
@@ -14,9 +15,11 @@ fn main() {
 
                 let mut parser = Parser::new(Lexer::new(code));
                 let program = parser.parse();
-                for stmt in program {
-                    println!("{}", stmt);
-                }
+
+                match evaluator.eval(program) {
+                    Ok(object) => println!("{}", object),
+                    Err(error) => eprintln!("\x1b[31m{}\x1b[0m", error),
+                };
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => {
                 println!("bye");
