@@ -1,6 +1,4 @@
-mod token;
-
-pub use self::token::Token;
+use crate::Token;
 
 pub struct Lexer<'a> {
     input: &'a str, // 字句解析対象のソースコード

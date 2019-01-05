@@ -12,5 +12,5 @@ repl = ["rustyline"]
 
 [[bin]]
 name = "shiki"
-path = "src/repl/main.rs"
+path = "src/bin/repl.rs"
 required-features = ["repl"]

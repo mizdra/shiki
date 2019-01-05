@@ -1,9 +1,5 @@
 use std::fmt;
 
-trait Operator {}
-impl Operator for Prefix {}
-impl Operator for Infix {}
-
 #[derive(PartialEq, Clone, Debug)]
 pub struct Ident(pub String);
 
@@ -68,19 +64,9 @@ pub enum Expr {
     Prefix(Prefix, Box<Expr>),
     Infix(Infix, Box<Expr>, Box<Expr>),
     Block(BlockStmt),
-    If {
-        cond: Box<Expr>,
-        consequence: BlockStmt,
-        alternative: Option<BlockStmt>,
-    },
-    Func {
-        params: Vec<Ident>,
-        body: Box<Expr>,
-    },
-    Call {
-        func: Box<Expr>,
-        args: Vec<Expr>,
-    },
+    If(Box<Expr>, BlockStmt, Option<BlockStmt>),
+    Lambda(Vec<Ident>, Box<Expr>),
+    Call(Box<Expr>, Vec<Expr>),
     While(Box<Expr>, BlockStmt),
 }
 
@@ -91,11 +77,7 @@ impl fmt::Display for Expr {
             Expr::Literal(literal) => write!(f, "{}", literal),
             Expr::Prefix(op, expr) => write!(f, "({}{})", op, expr),
             Expr::Infix(op, left, right) => write!(f, "({} {} {})", left, op, right),
-            Expr::If {
-                cond,
-                consequence: _,
-                alternative,
-            } => match alternative {
+            Expr::If(cond, _consequence, alternative) => match alternative {
                 Some(_block_stmt) => write!(f, "if {} {{ ... }} ...", cond),
                 None => write!(f, "if {} {{ ... }}", cond),
             },
@@ -150,6 +132,6 @@ pub enum Precedence {
     Sum,         // +
     Product,     // *
     Prefix,      // -X or !X
-    Call,        // myFunction(x)
+    Call,        // call_lambda(x)
     Index,       // array[index]
 }

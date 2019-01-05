@@ -1,7 +1,4 @@
-pub mod ast;
-
-use self::ast::*;
-use crate::{Lexer, Token};
+use crate::{ast::*, Lexer, Token};
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -247,10 +244,7 @@ impl Parser<'_> {
     fn parse_call_expr(&mut self, left: Expr) -> Option<Expr> {
         let args = self.parse_expr_list()?;
 
-        Some(Expr::Call {
-            func: Box::new(left),
-            args,
-        })
+        Some(Expr::Call(Box::new(left), args))
     }
 
     /// 現在のカーソル位置以降をブロック式としてパースし,
@@ -270,10 +264,7 @@ impl Parser<'_> {
         let params = self.parse_params()?;
         self.bump();
         let body = self.parse_expr(Precedence::Lowest)?;
-        Some(Expr::Func {
-            params,
-            body: Box::new(body),
-        })
+        Some(Expr::Lambda(params, Box::new(body)))
     }
 
     /// 現在のカーソル位置以降をif式としてパースし,
@@ -301,11 +292,7 @@ impl Parser<'_> {
         } else {
             None
         };
-        Some(Expr::If {
-            cond,
-            consequence,
-            alternative,
-        })
+        Some(Expr::If(cond, consequence, alternative))
     }
 
     /// 現在のカーソル位置以降をwhile式としてパースし,
@@ -581,75 +568,72 @@ add(1, 2, );
 
         let expected = vec![
             // implementation expression
-            Stmt::Expr(Expr::Func {
-                params: vec![],
-                body: Box::new(Expr::Block(vec![Stmt::Return(Expr::Literal(
+            Stmt::Expr(Expr::Lambda(
+                vec![],
+                Box::new(Expr::Block(vec![Stmt::Return(Expr::Literal(
                     Literal::Int(0),
                 ))])),
-            }),
-            Stmt::Expr(Expr::Func {
-                params: vec![],
-                body: Box::new(Expr::Block(vec![Stmt::Expr(Expr::Literal(Literal::Int(
+            )),
+            Stmt::Expr(Expr::Lambda(
+                vec![],
+                Box::new(Expr::Block(vec![Stmt::Expr(Expr::Literal(Literal::Int(
                     0,
                 )))])),
-            }),
-            Stmt::Expr(Expr::Func {
-                params: vec![],
-                body: Box::new(Expr::Literal(Literal::Int(0))),
-            }),
-            Stmt::Expr(Expr::Func {
-                params: vec![Ident("x".to_string())],
-                body: Box::new(Expr::Literal(Literal::Int(0))),
-            }),
-            Stmt::Expr(Expr::Func {
-                params: vec![Ident("x".to_string())],
-                body: Box::new(Expr::Literal(Literal::Int(0))),
-            }),
-            Stmt::Expr(Expr::Func {
-                params: vec![Ident("a".to_string()), Ident("b".to_string())],
-                body: Box::new(Expr::Literal(Literal::Int(0))),
-            }),
-            Stmt::Expr(Expr::Func {
-                params: vec![Ident("a".to_string()), Ident("b".to_string())],
-                body: Box::new(Expr::Literal(Literal::Int(0))),
-            }),
+            )),
+            Stmt::Expr(Expr::Lambda(
+                vec![],
+                Box::new(Expr::Literal(Literal::Int(0))),
+            )),
+            Stmt::Expr(Expr::Lambda(
+                vec![Ident("x".to_string())],
+                Box::new(Expr::Literal(Literal::Int(0))),
+            )),
+            Stmt::Expr(Expr::Lambda(
+                vec![Ident("x".to_string())],
+                Box::new(Expr::Literal(Literal::Int(0))),
+            )),
+            Stmt::Expr(Expr::Lambda(
+                vec![Ident("a".to_string()), Ident("b".to_string())],
+                Box::new(Expr::Literal(Literal::Int(0))),
+            )),
+            Stmt::Expr(Expr::Lambda(
+                vec![Ident("a".to_string()), Ident("b".to_string())],
+                Box::new(Expr::Literal(Literal::Int(0))),
+            )),
             // first-class object
             Stmt::Let(
                 Ident("val".to_string()),
-                Expr::Func {
-                    params: vec![],
-                    body: Box::new(Expr::Literal(Literal::Int(0))),
-                },
+                Expr::Lambda(vec![], Box::new(Expr::Literal(Literal::Int(0)))),
             ),
             // call expression
-            Stmt::Expr(Expr::Call {
-                func: Box::new(Expr::Func {
-                    params: vec![],
-                    body: Box::new(Expr::Literal(Literal::Int(0))),
-                }),
-                args: vec![Expr::Literal(Literal::Int(1))],
-            }),
-            Stmt::Expr(Expr::Call {
-                func: Box::new(Expr::Call {
-                    func: Box::new(Expr::Ident(Ident("func".to_string()))),
-                    args: vec![Expr::Literal(Literal::Int(1))],
-                }),
-                args: vec![Expr::Literal(Literal::Int(2))],
-            }),
-            Stmt::Expr(Expr::Call {
-                func: Box::new(Expr::Ident(Ident("add".to_string()))),
-                args: vec![
+            Stmt::Expr(Expr::Call(
+                Box::new(Expr::Lambda(
+                    vec![],
+                    Box::new(Expr::Literal(Literal::Int(0))),
+                )),
+                vec![Expr::Literal(Literal::Int(1))],
+            )),
+            Stmt::Expr(Expr::Call(
+                Box::new(Expr::Call(
+                    Box::new(Expr::Ident(Ident("func".to_string()))),
+                    vec![Expr::Literal(Literal::Int(1))],
+                )),
+                vec![Expr::Literal(Literal::Int(2))],
+            )),
+            Stmt::Expr(Expr::Call(
+                Box::new(Expr::Ident(Ident("add".to_string()))),
+                vec![
                     Expr::Literal(Literal::Int(1)),
                     Expr::Literal(Literal::Int(2)),
                 ],
-            }),
-            Stmt::Expr(Expr::Call {
-                func: Box::new(Expr::Ident(Ident("add".to_string()))),
-                args: vec![
+            )),
+            Stmt::Expr(Expr::Call(
+                Box::new(Expr::Ident(Ident("add".to_string()))),
+                vec![
                     Expr::Literal(Literal::Int(1)),
                     Expr::Literal(Literal::Int(2)),
                 ],
-            }),
+            )),
         ];
 
         let program = parse_src(src);
@@ -671,34 +655,34 @@ if 1 { 10; } else if 2 { 20; } else { 30; };
 
         let expected = vec![
             // implementation expression
-            Stmt::Expr(Expr::If {
-                cond: Box::new(Expr::Literal(Literal::Int(1))),
-                consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
-                alternative: None,
-            }),
-            Stmt::Expr(Expr::If {
-                cond: Box::new(Expr::Literal(Literal::Int(1))),
-                consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
-                alternative: Some(vec![Stmt::Expr(Expr::Literal(Literal::Int(20)))]),
-            }),
-            Stmt::Expr(Expr::If {
-                cond: Box::new(Expr::Literal(Literal::Int(1))),
-                consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
-                alternative: Some(vec![Stmt::Expr(Expr::If {
-                    cond: Box::new(Expr::Literal(Literal::Int(2))),
-                    consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(20)))],
-                    alternative: None,
-                })]),
-            }),
-            Stmt::Expr(Expr::If {
-                cond: Box::new(Expr::Literal(Literal::Int(1))),
-                consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
-                alternative: Some(vec![Stmt::Expr(Expr::If {
-                    cond: Box::new(Expr::Literal(Literal::Int(2))),
-                    consequence: vec![Stmt::Expr(Expr::Literal(Literal::Int(20)))],
-                    alternative: Some(vec![Stmt::Expr(Expr::Literal(Literal::Int(30)))]),
-                })]),
-            }),
+            Stmt::Expr(Expr::If(
+                Box::new(Expr::Literal(Literal::Int(1))),
+                vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
+                None,
+            )),
+            Stmt::Expr(Expr::If(
+                Box::new(Expr::Literal(Literal::Int(1))),
+                vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
+                Some(vec![Stmt::Expr(Expr::Literal(Literal::Int(20)))]),
+            )),
+            Stmt::Expr(Expr::If(
+                Box::new(Expr::Literal(Literal::Int(1))),
+                vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
+                Some(vec![Stmt::Expr(Expr::If(
+                    Box::new(Expr::Literal(Literal::Int(2))),
+                    vec![Stmt::Expr(Expr::Literal(Literal::Int(20)))],
+                    None,
+                ))]),
+            )),
+            Stmt::Expr(Expr::If(
+                Box::new(Expr::Literal(Literal::Int(1))),
+                vec![Stmt::Expr(Expr::Literal(Literal::Int(10)))],
+                Some(vec![Stmt::Expr(Expr::If(
+                    Box::new(Expr::Literal(Literal::Int(2))),
+                    vec![Stmt::Expr(Expr::Literal(Literal::Int(20)))],
+                    Some(vec![Stmt::Expr(Expr::Literal(Literal::Int(30)))]),
+                ))]),
+            )),
         ];
 
         let program = parse_src(src);

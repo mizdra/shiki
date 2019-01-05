@@ -1,10 +1,4 @@
-mod object;
-
-use crate::error::*;
-
-pub use self::object::Object;
-
-use crate::ast::*;
+use crate::{ast::*, Error, Object, Result};
 
 fn error(msg: String) -> Result<Object> {
     Err(Error::RuntimeError(msg))
