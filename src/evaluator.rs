@@ -11,7 +11,7 @@ impl Evaluator {
         Evaluator {}
     }
 
-    fn eval_literal(&mut self, literal: Literal) -> Result<Object> {
+    fn eval_literal_expr(&mut self, literal: Literal) -> Result<Object> {
         match literal {
             Literal::Int(val) => Ok(Object::Int(val)),
             Literal::String(val) => Ok(Object::String(val)),
@@ -19,7 +19,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_prefix(&mut self, prefix: Prefix, expr: Expr) -> Result<Object> {
+    fn eval_prefix_expr(&mut self, prefix: Prefix, expr: Expr) -> Result<Object> {
         let object = self.eval_expr(expr)?;
         match prefix {
             Prefix::Plus => Ok(object),
@@ -46,7 +46,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_infix(&mut self, infix: Infix, left: Expr, right: Expr) -> Result<Object> {
+    fn eval_infix_expr(&mut self, infix: Infix, left: Expr, right: Expr) -> Result<Object> {
         let left = self.eval_expr(left)?;
         let right = self.eval_expr(right)?;
         match (infix, left, right) {
@@ -103,11 +103,63 @@ impl Evaluator {
         }
     }
 
+    fn eval_if_expr(
+        &mut self,
+        cond: Expr,
+        consequence: BlockStmt,
+        alternative: Option<BlockStmt>,
+    ) -> Result<Object> {
+        let evaluated_cond = self.eval_expr(cond)?;
+        match evaluated_cond {
+            Object::Bool(val) => {
+                if val == true {
+                    self.eval_block_stmt(consequence)
+                } else if let Some(alt) = alternative {
+                    self.eval_block_stmt(alt)
+                } else {
+                    Ok(Object::Unit)
+                }
+            }
+            _ => error(format!(
+                "expected `Bool`, found `{}` variable",
+                evaluated_cond.get_type_name(),
+            )),
+        }
+    }
+
+    fn eval_while_expr(&mut self, cond: Expr, body: BlockStmt) -> Result<Object> {
+        loop {
+            let evaluated_cond = self.eval_expr(cond.clone())?;
+            match evaluated_cond {
+                Object::Bool(val) => {
+                    if val == true {
+                        self.eval_block_stmt(body.clone())?;
+                    } else {
+                        return Ok(Object::Unit);
+                    }
+                }
+                _ => {
+                    return error(format!(
+                        "expected `Bool`, found `{}` variable",
+                        evaluated_cond.get_type_name(),
+                    ))
+                }
+            }
+        }
+    }
+
     fn eval_expr(&mut self, expr: Expr) -> Result<Object> {
         match expr {
-            Expr::Literal(literal) => self.eval_literal(literal),
-            Expr::Prefix(prefix, e) => self.eval_prefix(prefix, *e),
-            Expr::Infix(infix, left, right) => self.eval_infix(infix, *left, *right),
+            Expr::Literal(literal) => self.eval_literal_expr(literal),
+            Expr::Prefix(prefix, e) => self.eval_prefix_expr(prefix, *e),
+            Expr::Infix(infix, left, right) => self.eval_infix_expr(infix, *left, *right),
+            Expr::Block(block_stmt) => self.eval_block_stmt(block_stmt),
+            Expr::If(cond, consequence, alternative) => {
+                self.eval_if_expr(*cond, consequence, alternative)
+            }
+            Expr::Lambda(_args, _body) => unimplemented!(),
+            Expr::Call(_lambda, _args) => unimplemented!(),
+            Expr::While(cond, body) => self.eval_while_expr(*cond, body),
             _ => unimplemented!(),
         }
     }
@@ -150,8 +202,9 @@ mod tests {
     }
 
     #[test]
-    fn test_expr_stmt() {
-        // 優先順位のテストは parser の責務であるため, ここではテストしない
+    fn expr_evaluates_to_object() {
+        // 式が評価され適切なオブジェクトが返されるかをテストする
+        // 評価順のテストは
 
         // リテラル
         assert_eq!(eval("0"), Object::Int(0));
@@ -203,5 +256,58 @@ mod tests {
             eval("!!(!(!!!(0 == 0)) == (1 == 2))"),
             Object::Bool(!!(!(!!!(0 == 0)) == (1 == 2)))
         );
+
+        // 制御構文
+        assert_eq!(eval("if true { 10 }"), Object::Int(10));
+        assert_eq!(eval("if false { 10 }"), Object::Unit);
+        assert_eq!(eval("if true { 10 } else { 20 }"), Object::Int(10));
+        assert_eq!(eval("if false { 10 } else { 20 }"), Object::Int(20));
+        assert_eq!(eval("if true { 10 } else if true { 20 }"), Object::Int(10));
+        assert_eq!(eval("if false { 10 } else if true { 20 }"), Object::Int(20));
+        assert_eq!(eval("if true { 10 } else if false { 20 }"), Object::Int(10));
+        assert_eq!(eval("if false { 10 } else if false { 20 }"), Object::Unit);
+        assert_eq!(
+            eval("if true { 10 } else if true { 20 } else { 30 }"),
+            Object::Int(10)
+        );
+        assert_eq!(
+            eval("if false { 10 } else if true { 20 } else { 30 }"),
+            Object::Int(20)
+        );
+        assert_eq!(
+            eval("if true { 10 } else if false { 20 } else { 30 }"),
+            Object::Int(10)
+        );
+        assert_eq!(
+            eval("if false { 10 } else if false { 20 } else { 30 }"),
+            Object::Int(30)
+        );
+        assert_eq!(eval("while false { 10 }"), Object::Unit);
+    }
+
+    #[test]
+    fn evaluation_strategy_is_call_by_value() {
+        // TODO: ラムダ式の束縛変数が値渡しされることをテストする
+    }
+
+    #[test]
+    fn expression_is_evaluated_from_left_to_right() {
+        // TODO: 式が左から順に評価されることをテストする
+    }
+
+    #[test]
+    fn logical_operator_is_short_circuit() {
+        // TODO: 論理演算子が短絡評価されることをテストする
+    }
+
+    #[test]
+    fn if_expression_is_short_circuit() {
+        // TODO: if式が短絡評価されることをテストする
+    }
+
+    #[test]
+    fn while_expression_loop_body() {
+        // TODO: while式が `cond` が `false` になるまで
+        // `body` を繰り返し評価することをテストする
     }
 }
