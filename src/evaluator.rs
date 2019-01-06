@@ -164,25 +164,35 @@ impl Evaluator {
         }
     }
 
+    fn eval_return_stmt(&mut self, expr: Expr) -> Result<Object> {
+        let object = self.eval_expr(expr)?;
+        Err(Error::ReturnObject(object))
+    }
+
     fn eval_stmt(&mut self, stmt: Stmt) -> Result<Object> {
         match stmt {
             // Stmt::Let(ident, expr) => self.eval_let_stmt(ident, expr),
-            // Stmt::Return => self.eval_return_stmt(stmt),
+            Stmt::Return(expr) => self.eval_return_stmt(expr),
             Stmt::Expr(expr) => self.eval_expr(expr),
             _ => unimplemented!(),
         }
     }
 
     fn eval_block_stmt(&mut self, block_stmt: BlockStmt) -> Result<Object> {
-        let mut result = Ok(Object::Unit);
+        let mut result = Object::Unit;
         for stmt in block_stmt {
-            result = self.eval_stmt(stmt);
+            result = self.eval_stmt(stmt)?;
         }
-        result
+        Ok(result)
     }
 
     pub fn eval(&mut self, program: Program) -> Result<Object> {
-        self.eval_block_stmt(program)
+        match self.eval_block_stmt(program) {
+            Err(Error::ReturnObject(_)) => {
+                error(format!("cannnot return from outside of lambda expression"))
+            }
+            result => result,
+        }
     }
 }
 
