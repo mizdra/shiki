@@ -4,6 +4,7 @@ pub mod ast;
 mod object;
 mod token;
 
+mod env;
 mod evaluator;
 mod lexer;
 mod parser;

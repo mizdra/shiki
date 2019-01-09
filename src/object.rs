@@ -1,4 +1,8 @@
+use crate::ast;
+use crate::env::Env;
+use std::cell::RefCell;
 use std::fmt;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
@@ -6,6 +10,7 @@ pub enum Object {
     String(String),
     Bool(bool),
     Unit,
+    Lambda(Rc<RefCell<Env>>, Vec<ast::Ident>, ast::Expr),
 }
 
 impl Object {
@@ -15,6 +20,7 @@ impl Object {
             Object::String(_) => "String",
             Object::Bool(_) => "Bool",
             Object::Unit => "Unit",
+            Object::Lambda(..) => "Lambda",
         }
     }
 }
@@ -26,6 +32,7 @@ impl fmt::Display for Object {
             Object::String(val) => write!(f, "\"{}\"", val),
             Object::Bool(val) => write!(f, "{}", val),
             Object::Unit => write!(f, "()"),
+            Object::Lambda(..) => write!(f, "|..| {{..}}"),
         }
     }
 }

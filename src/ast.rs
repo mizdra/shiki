@@ -1,7 +1,13 @@
 use std::fmt;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub struct Ident(pub String);
+
+impl Ident {
+    pub fn get_ident_name(&self) -> String {
+        self.0.clone()
+    }
+}
 
 impl fmt::Display for Ident {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

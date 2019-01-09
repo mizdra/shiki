@@ -1,14 +1,33 @@
+use crate::env::Env;
 use crate::{ast::*, Error, Object, Result};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use std::collections::HashMap;
 
 fn error(msg: String) -> Result<Object> {
     Err(Error::RuntimeError(msg))
 }
 
-pub struct Evaluator {}
+pub struct Evaluator {
+    env: Rc<RefCell<Env>>,
+}
 
 impl Evaluator {
     pub fn new() -> Evaluator {
-        Evaluator {}
+        Evaluator {
+            env: Rc::new(RefCell::new(Env::new(None, HashMap::new()))),
+        }
+    }
+
+    fn eval_ident_expr(&mut self, ident: Ident) -> Result<Object> {
+        match self.env.borrow_mut().get(&ident) {
+            Some(object) => Ok(object),
+            None => error(format!(
+                "cannot find identifier `{}` in this scope",
+                ident.get_ident_name(),
+            )),
+        }
     }
 
     fn eval_literal_expr(&mut self, literal: Literal) -> Result<Object> {
@@ -127,6 +146,50 @@ impl Evaluator {
         }
     }
 
+    fn eval_lambda_expr(&mut self, params: Vec<Ident>, body: Expr) -> Result<Object> {
+        Ok(Object::Lambda(Rc::clone(&self.env), params, body))
+    }
+
+    fn eval_call_expr(&mut self, callee: Expr, args: Vec<Expr>) -> Result<Object> {
+        let callee = self.eval_expr(callee)?;
+
+        let (env, params, body) = match callee {
+            Object::Lambda(env, params, body) => (env, params, body),
+            _ => {
+                return error(format!(
+                    "expected `Lambda`, found `{}` variable",
+                    callee.get_type_name(),
+                ))
+            }
+        };
+
+        if params.len() != args.len() {
+            return error(format!(
+                "`Lambda` takes {} parameter but {} parameters were supplied",
+                params.len(),
+                args.len(),
+            ));
+        }
+
+        let mut evaluated_args = vec![];
+        for arg in args {
+            evaluated_args.push(self.eval_expr(arg)?);
+        }
+
+        let mut scoped_env = Env::with_outer(Rc::clone(&env));
+        let list = params.iter().zip(evaluated_args.iter());
+        for (ident, object) in list {
+            scoped_env.add(ident.clone(), object.clone());
+        }
+
+        let current_env = self.env.clone();
+        self.env = Rc::new(RefCell::new(scoped_env));
+        let object = self.eval_expr(body)?;
+        self.env = current_env;
+
+        Ok(object)
+    }
+
     fn eval_while_expr(&mut self, cond: Expr, body: BlockStmt) -> Result<Object> {
         loop {
             let evaluated_cond = self.eval_expr(cond.clone())?;
@@ -150,6 +213,7 @@ impl Evaluator {
 
     fn eval_expr(&mut self, expr: Expr) -> Result<Object> {
         match expr {
+            Expr::Ident(ident) => self.eval_ident_expr(ident),
             Expr::Literal(literal) => self.eval_literal_expr(literal),
             Expr::Prefix(prefix, e) => self.eval_prefix_expr(prefix, *e),
             Expr::Infix(infix, left, right) => self.eval_infix_expr(infix, *left, *right),
@@ -157,10 +221,9 @@ impl Evaluator {
             Expr::If(cond, consequence, alternative) => {
                 self.eval_if_expr(*cond, consequence, alternative)
             }
-            Expr::Lambda(_args, _body) => unimplemented!(),
-            Expr::Call(_lambda, _args) => unimplemented!(),
+            Expr::Lambda(params, body) => self.eval_lambda_expr(params, *body),
+            Expr::Call(callee, args) => self.eval_call_expr(*callee, args),
             Expr::While(cond, body) => self.eval_while_expr(*cond, body),
-            _ => unimplemented!(),
         }
     }
 
@@ -169,12 +232,17 @@ impl Evaluator {
         Err(Error::ReturnObject(object))
     }
 
+    fn eval_let_stmt(&mut self, ident: Ident, expr: Expr) -> Result<Object> {
+        let expr = self.eval_expr(expr)?;
+        self.env.borrow_mut().add(ident, expr);
+        Ok(Object::Unit)
+    }
+
     fn eval_stmt(&mut self, stmt: Stmt) -> Result<Object> {
         match stmt {
-            // Stmt::Let(ident, expr) => self.eval_let_stmt(ident, expr),
+            Stmt::Let(ident, expr) => self.eval_let_stmt(ident, expr),
             Stmt::Return(expr) => self.eval_return_stmt(expr),
             Stmt::Expr(expr) => self.eval_expr(expr),
-            _ => unimplemented!(),
         }
     }
 
@@ -207,7 +275,7 @@ mod tests {
         let mut evaluator = Evaluator::new();
         match evaluator.eval(program) {
             Ok(object) => object,
-            Err(err) => panic!(err),
+            Err(err) => panic!("{}", err),
         }
     }
 
@@ -293,6 +361,28 @@ mod tests {
             Object::Int(30)
         );
         assert_eq!(eval("while false { 10 }"), Object::Unit);
+
+        // 変数
+        assert_eq!(eval("let x = 1; x"), Object::Int(1));
+        assert_eq!(eval("let x = 1; x + 2"), Object::Int(3));
+        assert_eq!(eval("let x = 1; let x = x + 2; x"), Object::Int(3));
+        assert_eq!(
+            eval("let x = \"str\"; x"),
+            Object::String("str".to_string())
+        );
+        assert_eq!(eval("let x = true; x"), Object::Bool(true));
+        // assert_eq!(eval("let x = (); x"), Object::Unit);
+        assert!(if let Object::Lambda(..) = eval("let x = || 0; x") {
+            true
+        } else {
+            false
+        });
+
+        // ラムダ式呼び出し
+        assert_eq!(eval("(|| 0)()"), Object::Int(0));
+        assert_eq!(eval("(|x| x)(1)"), Object::Int(1));
+        assert_eq!(eval("(|x, y| x + y)(1, 2)"), Object::Int(3));
+        assert_eq!(eval("let z = 3; (|x, y| x + y + z)(1, 2)"), Object::Int(6));
     }
 
     #[test]
