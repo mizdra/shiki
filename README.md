@@ -13,7 +13,33 @@ $ cargo build
 ## Usage
 ```
 ## REPL
-$ cargo run --bin shiki
+$ cargo run --bin shiki --features="repl"
+>> -1 + 2 * 3 - (4 + 5) * 6;
+-49
+>> let val = "Hello World";
+()
+>> val
+"Hello World"
+>> let pow = |a, b| { if b <= 1 { return a; } a * pow(a, b - 1) };
+()
+>> pow(3, 3)
+27
+>> let sum = 0;
+()
+>> while sum < 10 { sum = sum + 1; }
+()
+>> sum
+10
+>> undefined_val
+runtime error: cannot find identifier `undefined_val` in this scope
+>> "str" - "s"
+runtime error: no implementation for `String - String`
+>> return 1;
+runtime error: cannnot return from outside of lambda expression
+>> let invalid := 1;
+parse error: expected `=`, found `:`
+>> ^C
+bye
 
 ## Test
 $ cargo test
