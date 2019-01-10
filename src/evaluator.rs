@@ -354,7 +354,7 @@ mod tests {
 
     fn eval(src: &str) -> Object {
         let mut parser = Parser::new(Lexer::new(src));
-        let program = parser.parse();
+        let program = parser.parse().unwrap();
         let mut evaluator = Evaluator::new();
         match evaluator.eval(program) {
             Ok(object) => object,

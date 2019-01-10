@@ -1,6 +1,10 @@
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use shiki::{Evaluator, Lexer, Parser};
+use shiki::{Error, Evaluator, Lexer, Parser};
+
+fn print_error(error: Error) {
+    eprintln!("\x1b[31m{}\x1b[0m", error);
+}
 
 fn main() {
     let mut rl = Editor::<()>::new();
@@ -14,11 +18,16 @@ fn main() {
                 rl.add_history_entry(code);
 
                 let mut parser = Parser::new(Lexer::new(code));
-                let program = parser.parse();
-
-                match evaluator.eval(program) {
-                    Ok(object) => println!("{}", object),
-                    Err(error) => eprintln!("\x1b[31m{}\x1b[0m", error),
+                match parser.parse() {
+                    Ok(program) => match evaluator.eval(program) {
+                        Ok(object) => println!("{}", object),
+                        Err(error) => print_error(error),
+                    },
+                    Err(errors) => {
+                        for error in errors {
+                            print_error(error);
+                        }
+                    }
                 };
             }
             Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => {

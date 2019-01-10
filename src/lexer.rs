@@ -189,7 +189,7 @@ impl Lexer<'_> {
                     self.next_ch();
                     Token::AndAnd
                 } else {
-                    Token::Invalid
+                    Token::Invalid("&".to_string())
                 }
             }
             b'|' => {
@@ -211,7 +211,7 @@ impl Lexer<'_> {
 
             // Control tokens
             0 => return Token::Eof,
-            _ => Token::Invalid,
+            _ => Token::Invalid((self.ch as char).to_string()),
         };
 
         self.next_ch(); // 次の文字へとカーソルを進める
