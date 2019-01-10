@@ -1,5 +1,6 @@
 use crate::ast::Ident;
 use crate::object::Object;
+use crate::{Error, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -41,5 +42,19 @@ impl Env {
                 }
             }
         }
+    }
+
+    pub fn update(&mut self, ident: Ident, new_object: Object) -> Result<()> {
+        if self.local.contains_key(&ident) {
+            self.local.insert(ident, new_object);
+            return Ok(());
+        }
+        if let Some(ref mut parent) = self.parent {
+            return parent.borrow_mut().update(ident, new_object);
+        }
+        Err(Error::RuntimeError(format!(
+            "cannot find identifier `{}` in this scope",
+            ident.get_ident_name(),
+        )))
     }
 }

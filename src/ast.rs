@@ -114,6 +114,7 @@ impl fmt::Display for Literal {
 #[derive(PartialEq, Clone, Debug)]
 pub enum Stmt {
     Let(Ident, Expr),
+    Assign(Ident, Expr),
     Return(Expr),
     Expr(Expr),
 }
@@ -122,6 +123,7 @@ impl fmt::Display for Stmt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Stmt::Let(ident, expr) => write!(f, "let {} = {};", ident, expr),
+            Stmt::Assign(ident, expr) => write!(f, "{} = {};", ident, expr),
             Stmt::Return(expr) => write!(f, "return {};", expr),
             Stmt::Expr(expr) => write!(f, "{};", expr),
         }

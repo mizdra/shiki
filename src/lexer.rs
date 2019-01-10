@@ -244,7 +244,7 @@ let pow = |a, b| {
   if b <= 1 {
     return a;
   } else {
-    pow(a * b, b - 1)
+    a * pow(a, b - 1)
   }
 }
 let result = pow(3, 3);
@@ -343,11 +343,11 @@ puts(result); // 27"#;
             Token::Rbrace,
             Token::Else,
             Token::Lbrace,
+            Token::Ident("a".to_string()),
+            Token::Asterisk,
             Token::Ident("pow".to_string()),
             Token::Lparen,
             Token::Ident("a".to_string()),
-            Token::Asterisk,
-            Token::Ident("b".to_string()),
             Token::Comma,
             Token::Ident("b".to_string()),
             Token::Minus,

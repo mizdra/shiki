@@ -185,7 +185,14 @@ impl Evaluator {
 
         let current_env = self.env.clone();
         self.env = Rc::new(RefCell::new(scoped_env));
-        let object = self.eval_expr(body)?;
+
+        // 評価した body の値が ReturnObject であれば
+        // 中から Object を取り出す
+        let object = match self.eval_expr(body) {
+            Ok(object) => object,
+            Err(Error::ReturnObject(object)) => object,
+            err => return err,
+        };
         self.env = current_env;
 
         Ok(object)
@@ -239,9 +246,16 @@ impl Evaluator {
         Ok(Object::Unit)
     }
 
+    fn eval_assign_stmt(&mut self, ident: Ident, expr: Expr) -> Result<Object> {
+        let new_object = self.eval_expr(expr)?;
+        self.env.borrow_mut().update(ident, new_object)?;
+        Ok(Object::Unit)
+    }
+
     fn eval_stmt(&mut self, stmt: Stmt) -> Result<Object> {
         match stmt {
             Stmt::Let(ident, expr) => self.eval_let_stmt(ident, expr),
+            Stmt::Assign(ident, expr) => self.eval_assign_stmt(ident, expr),
             Stmt::Return(expr) => self.eval_return_stmt(expr),
             Stmt::Expr(expr) => self.eval_expr(expr),
         }
@@ -381,6 +395,9 @@ mod tests {
 
         // ラムダ式呼び出し
         assert_eq!(eval("(|| 0)()"), Object::Int(0));
+        assert_eq!(eval("(|| { 0 })()"), Object::Int(0));
+        assert_eq!(eval("(|| { 0; 1 })()"), Object::Int(1));
+        assert_eq!(eval("(|| { return 0; 1 })()"), Object::Int(0));
         assert_eq!(eval("(|x| x)(1)"), Object::Int(1));
         assert_eq!(eval("(|x, y| x + y)(1, 2)"), Object::Int(3));
         assert_eq!(eval("let z = 3; (|x, y| x + y + z)(1, 2)"), Object::Int(6));
@@ -390,16 +407,112 @@ mod tests {
         assert_eq!(eval("{ 0 }"), Object::Int(0));
         assert_eq!(eval("{ 0; 1 }"), Object::Int(1));
         assert_eq!(eval("{ 0; 1 } + 2"), Object::Int(3));
+
+        // 文
+        assert_eq!(eval("let x = 0;"), Object::Unit);
+        assert_eq!(eval("let x = 0; x = 1;"), Object::Unit);
+        assert_eq!(eval("let x = 0; x = 1; x;"), Object::Int(1));
+    }
+
+    #[test]
+    fn test_lambda() {
+        // shiki は function scope を持つ
+        assert_eq!(
+            eval(
+                r#"
+        let val = 1;
+        let f = |arg| arg + val;
+        val + f(10);
+        "#
+            ),
+            Object::Int(12)
+        );
+        assert_eq!(
+            eval(
+                r#"
+        let x = 1;
+        let f = |y| {
+            let g = |z| x * 100 + y * 10 + z;
+            g;
+        };
+
+        // y はキャプチャされるので captured_g は
+        // 他のラムダ式呼び出しの影響を受けない
+        let captured_g = f(2);
+        f(1000); // これで captured_g の y が 1000 に書き換わることはない
+        captured_g(3);
+        "#
+            ),
+            Object::Int(123)
+        );
+        assert_eq!(
+            eval(
+                r#"
+        let x = 1;
+        let y = x; // 代入文は右辺の式を評価してそのオブジェクトをディープコピーする
+        if true {
+            // shiki は lexical scope ではなく function scope であるため,
+            // x は再束縛される. ただし y はディープコピーされた
+            // オブジェクトを持っているので再束縛の影響を受けない
+            let x = 2;
+        }
+        x + y;
+        "#
+            ),
+            Object::Int(3)
+        );
+
+        // 再帰呼び出しができる
+        assert_eq!(
+            eval(
+                r#"
+let pow = |a, b| {
+  if b <= 1 {
+    a;
+  } else {
+    a * pow(a, b - 1);
+  }
+};
+pow(3, 3);
+        "#
+            ),
+            Object::Int(27)
+        );
     }
 
     #[test]
     fn evaluation_strategy_is_call_by_value() {
-        // TODO: ラムダ式の束縛変数が値渡しされることをテストする
+        // ラムダ式の束縛変数が値渡しされることをテストする
+        // 仮引数に対する代入は外部の変数を変更しない
+        assert_eq!(
+            eval(
+                r#"
+        let outer = 0;
+        let f = |inner| {
+            inner = 1;
+        };
+        f(outer);
+        outer;
+        "#
+            ),
+            Object::Int(0)
+        );
     }
 
     #[test]
     fn expression_is_evaluated_from_left_to_right() {
-        // TODO: 式が左から順に評価されることをテストする
+        // 式が左から順に評価されることをテストする
+        // assert_eq!(
+        //     eval(
+        //         r#"
+        // let str = "";
+        // let f = |c| { str = str + c; };
+        // f("a") + f("b") * f("c") + f("d");
+        // f;
+        // "#
+        //     ),
+        //     Object::Int(0)
+        // );
     }
 
     #[test]

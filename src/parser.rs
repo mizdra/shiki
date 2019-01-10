@@ -368,18 +368,31 @@ impl Parser<'_> {
 
 // stmt
 impl Parser<'_> {
-    /// 現在のカーソル位置以降を代入文としてパースし,
-    /// 代入文の最後のトークンまでカーソルを進めます.
+    /// 現在のカーソル位置以降を宣言文としてパースし,
+    /// 宣言文の最後のトークンまでカーソルを進めます.
     /// パースに失敗した場合は None を返します.
     /// (ただし `cur_token` が `let` であるとする)
     fn parse_let_stmt(&mut self) -> Option<Stmt> {
-        self.bump();
+        self.bump(); // skip `let`
         let left = self.parse_ident()?;
         self.bump();
-        self.expect(Token::Assign)?;
+        self.expect(Token::Assign)?; // skip `=`
         let right = self.parse_expr(Precedence::Lowest)?;
         self.expect_next(Token::Semicolon)?;
         Some(Stmt::Let(left, right))
+    }
+
+    /// 現在のカーソル位置以降を代入文としてパースし,
+    /// 代入文の最後のトークンまでカーソルを進めます.
+    /// パースに失敗した場合は None を返します.
+    /// (ただし `cur_token` が `ident`, `next_token` が `=` であるとする)
+    fn parse_assign_stmt(&mut self) -> Option<Stmt> {
+        let left = self.parse_ident()?;
+        self.bump();
+        self.bump(); // skip `=`
+        let right = self.parse_expr(Precedence::Lowest)?;
+        self.expect_next(Token::Semicolon)?;
+        Some(Stmt::Assign(left, right))
     }
 
     /// 現在のカーソル位置以降をreturn文としてパースし,
@@ -408,6 +421,7 @@ impl Parser<'_> {
     fn parse_stmt(&mut self) -> Option<Stmt> {
         match self.cur_token {
             Token::Let => self.parse_let_stmt(),
+            Token::Ident(_) if self.next_token_is(Token::Assign) => self.parse_assign_stmt(),
             Token::Return => self.parse_return_stmt(),
             _ => self.parse_expr_stmt(),
         }
@@ -462,21 +476,24 @@ mod tests {
     }
 
     #[test]
-    fn test_program() {
+    fn test_stmt() {
         let src = r#"
 let num = 1;
-return 2;
+val = 2;
+3;
+return 4;
 "#;
 
         let expected = vec![
             Stmt::Let(Ident("num".to_string()), Expr::Literal(Literal::Int(1))),
-            Stmt::Return(Expr::Literal(Literal::Int(2))),
+            Stmt::Assign(Ident("val".to_string()), Expr::Literal(Literal::Int(2))),
+            Stmt::Expr(Expr::Literal(Literal::Int(3))),
+            Stmt::Return(Expr::Literal(Literal::Int(4))),
         ];
 
         let program = parse_src(src);
 
         for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
-            println!("actual: {:?}, expected: {:?}", actual_stmt, expected_stmt);
             assert_eq!(actual_stmt, expected_stmt);
         }
     }
@@ -503,7 +520,6 @@ false;
 
         assert_eq!(program.len(), expected.len());
         for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
-            println!("actual: {:?}, expected: {:?}", actual_stmt, expected_stmt);
             assert_eq!(actual_stmt, expected_stmt);
         }
     }
