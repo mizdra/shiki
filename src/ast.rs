@@ -44,6 +44,8 @@ pub enum Infix {
     GreaterThan,
     LessThanEqual,
     LessThan,
+    AndAnd,
+    OrOr,
 }
 
 impl fmt::Display for Infix {
@@ -59,6 +61,8 @@ impl fmt::Display for Infix {
             Infix::GreaterThan => write!(f, ">"),
             Infix::LessThanEqual => write!(f, "<="),
             Infix::LessThan => write!(f, "<"),
+            Infix::AndAnd => write!(f, "&&"),
+            Infix::OrOr => write!(f, "||"),
         }
     }
 }
@@ -137,11 +141,11 @@ pub type Program = Vec<Stmt>;
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Precedence {
     Lowest,
+    AndAnd,
     Equals,      // ==
     LessGreater, // > or <
     Sum,         // +
     Product,     // *
     Prefix,      // -X or !X
     Call,        // call_lambda(x)
-    Index,       // array[index]
 }

@@ -67,69 +67,127 @@ impl Evaluator {
     }
 
     fn eval_infix_expr(&mut self, infix: Infix, left: Expr, right: Expr) -> Result<Object> {
-        let left = self.eval_expr(left)?;
-        let right = self.eval_expr(right)?;
-        match (infix, left, right) {
-            (Infix::Plus, left, right) => match (left, right) {
-                (Object::Int(l_val), Object::Int(r_val)) => Ok(Object::Int(l_val + r_val)),
-                (Object::String(l_val), Object::String(r_val)) => {
-                    Ok(Object::String(l_val + &r_val))
+        match infix {
+            Infix::AndAnd => {
+                let left = self.eval_expr(left)?;
+                match left {
+                    Object::Bool(false) => return Ok(Object::Bool(false)),
+                    Object::Bool(true) => {
+                        let right = self.eval_expr(right)?;
+                        match right {
+                            Object::Bool(val) => return Ok(Object::Bool(val)),
+                            _ => error(format!(
+                                "no implementation for `{} && {}`",
+                                left.get_type_name(),
+                                right.get_type_name(),
+                            )),
+                        }
+                    }
+                    _ => error(format!(
+                        "no implementation for `{} && ..`",
+                        left.get_type_name(),
+                    )),
                 }
-                (left, right) => error(format!(
-                    "no implementation for `{} + {}`",
-                    left.get_type_name(),
-                    right.get_type_name(),
-                )),
-            },
-            (Infix::Minus, Object::Int(l_val), Object::Int(r_val)) => {
-                Ok(Object::Int(l_val - r_val))
             }
-            (Infix::Divide, Object::Int(l_val), Object::Int(r_val)) => {
-                Ok(Object::Int(l_val / r_val))
+            Infix::OrOr => {
+                let left = self.eval_expr(left)?;
+                match left {
+                    Object::Bool(true) => return Ok(Object::Bool(true)),
+                    Object::Bool(false) => {
+                        let right = self.eval_expr(right)?;
+                        match right {
+                            Object::Bool(val) => return Ok(Object::Bool(val)),
+                            _ => error(format!(
+                                "no implementation for `{} || {}`",
+                                left.get_type_name(),
+                                right.get_type_name(),
+                            )),
+                        }
+                    }
+                    _ => error(format!(
+                        "no implementation for `{} || ..`",
+                        left.get_type_name(),
+                    )),
+                }
             }
-            (Infix::Multiply, Object::Int(l_val), Object::Int(r_val)) => {
-                Ok(Object::Int(l_val * r_val))
+            infix => {
+                let left = self.eval_expr(left)?;
+                let right = self.eval_expr(right)?;
+                match (infix, left, right) {
+                    (Infix::Plus, left, right) => match (left, right) {
+                        (Object::Int(l_val), Object::Int(r_val)) => Ok(Object::Int(l_val + r_val)),
+                        (Object::String(l_val), Object::String(r_val)) => {
+                            Ok(Object::String(l_val + &r_val))
+                        }
+                        (left, right) => error(format!(
+                            "no implementation for `{} + {}`",
+                            left.get_type_name(),
+                            right.get_type_name(),
+                        )),
+                    },
+                    (Infix::Minus, Object::Int(l_val), Object::Int(r_val)) => {
+                        Ok(Object::Int(l_val - r_val))
+                    }
+                    (Infix::Divide, Object::Int(l_val), Object::Int(r_val)) => {
+                        Ok(Object::Int(l_val / r_val))
+                    }
+                    (Infix::Multiply, Object::Int(l_val), Object::Int(r_val)) => {
+                        Ok(Object::Int(l_val * r_val))
+                    }
+                    (Infix::Equal, left, right) => match (left, right) {
+                        (Object::Int(l_val), Object::Int(r_val)) => {
+                            Ok(Object::Bool(l_val == r_val))
+                        }
+                        (Object::String(l_val), Object::String(r_val)) => {
+                            Ok(Object::Bool(l_val == r_val))
+                        }
+                        (Object::Bool(l_val), Object::Bool(r_val)) => {
+                            Ok(Object::Bool(l_val == r_val))
+                        }
+                        (Object::Unit, Object::Unit) => Ok(Object::Bool(true)),
+                        (left, right) => error(format!(
+                            "no implementation for `{} == {}`",
+                            left.get_type_name(),
+                            right.get_type_name(),
+                        )),
+                    },
+                    (Infix::NotEqual, left, right) => match (left, right) {
+                        (Object::Int(l_val), Object::Int(r_val)) => {
+                            Ok(Object::Bool(l_val != r_val))
+                        }
+                        (Object::String(l_val), Object::String(r_val)) => {
+                            Ok(Object::Bool(l_val != r_val))
+                        }
+                        (Object::Bool(l_val), Object::Bool(r_val)) => {
+                            Ok(Object::Bool(l_val != r_val))
+                        }
+                        (Object::Unit, Object::Unit) => Ok(Object::Bool(false)),
+                        (left, right) => error(format!(
+                            "no implementation for `{} != {}`",
+                            left.get_type_name(),
+                            right.get_type_name(),
+                        )),
+                    },
+                    (Infix::GreaterThanEqual, Object::Int(l_val), Object::Int(r_val)) => {
+                        Ok(Object::Bool(l_val >= r_val))
+                    }
+                    (Infix::GreaterThan, Object::Int(l_val), Object::Int(r_val)) => {
+                        Ok(Object::Bool(l_val > r_val))
+                    }
+                    (Infix::LessThanEqual, Object::Int(l_val), Object::Int(r_val)) => {
+                        Ok(Object::Bool(l_val <= r_val))
+                    }
+                    (Infix::LessThan, Object::Int(l_val), Object::Int(r_val)) => {
+                        Ok(Object::Bool(l_val < r_val))
+                    }
+                    (infix, left, right) => error(format!(
+                        "no implementation for `{} {} {}`",
+                        left.get_type_name(),
+                        infix,
+                        right.get_type_name(),
+                    )),
+                }
             }
-            (Infix::Equal, left, right) => match (left, right) {
-                (Object::Int(l_val), Object::Int(r_val)) => Ok(Object::Bool(l_val == r_val)),
-                (Object::String(l_val), Object::String(r_val)) => Ok(Object::Bool(l_val == r_val)),
-                (Object::Bool(l_val), Object::Bool(r_val)) => Ok(Object::Bool(l_val == r_val)),
-                (Object::Unit, Object::Unit) => Ok(Object::Bool(true)),
-                (left, right) => error(format!(
-                    "no implementation for `{} == {}`",
-                    left.get_type_name(),
-                    right.get_type_name(),
-                )),
-            },
-            (Infix::NotEqual, left, right) => match (left, right) {
-                (Object::Int(l_val), Object::Int(r_val)) => Ok(Object::Bool(l_val != r_val)),
-                (Object::String(l_val), Object::String(r_val)) => Ok(Object::Bool(l_val != r_val)),
-                (Object::Bool(l_val), Object::Bool(r_val)) => Ok(Object::Bool(l_val != r_val)),
-                (Object::Unit, Object::Unit) => Ok(Object::Bool(false)),
-                (left, right) => error(format!(
-                    "no implementation for `{} != {}`",
-                    left.get_type_name(),
-                    right.get_type_name(),
-                )),
-            },
-            (Infix::GreaterThanEqual, Object::Int(l_val), Object::Int(r_val)) => {
-                Ok(Object::Bool(l_val >= r_val))
-            }
-            (Infix::GreaterThan, Object::Int(l_val), Object::Int(r_val)) => {
-                Ok(Object::Bool(l_val > r_val))
-            }
-            (Infix::LessThanEqual, Object::Int(l_val), Object::Int(r_val)) => {
-                Ok(Object::Bool(l_val <= r_val))
-            }
-            (Infix::LessThan, Object::Int(l_val), Object::Int(r_val)) => {
-                Ok(Object::Bool(l_val < r_val))
-            }
-            (infix, left, right) => error(format!(
-                "no implementation for `{} {} {}`",
-                left.get_type_name(),
-                infix,
-                right.get_type_name(),
-            )),
         }
     }
 
@@ -307,7 +365,6 @@ mod tests {
     #[test]
     fn expr_evaluates_to_object() {
         // 式が評価され適切なオブジェクトが返されるかをテストする
-        // 評価順のテストは
 
         // リテラル
         assert_eq!(eval("0"), Object::Int(0));
@@ -329,6 +386,14 @@ mod tests {
         assert_eq!(eval("1 == 2"), Object::Bool(1 == 2));
         assert_eq!(eval("true == true"), Object::Bool(true == true));
         assert_eq!(eval("true == false"), Object::Bool(true == false));
+        assert_eq!(eval("false && false"), Object::Bool(false && false));
+        assert_eq!(eval("false && true"), Object::Bool(false && true));
+        assert_eq!(eval("true && false"), Object::Bool(true && false));
+        assert_eq!(eval("true && true"), Object::Bool(true && true));
+        assert_eq!(eval("false || false"), Object::Bool(false || false));
+        assert_eq!(eval("false || true"), Object::Bool(false || true));
+        assert_eq!(eval("true || false"), Object::Bool(true || false));
+        assert_eq!(eval("true || true"), Object::Bool(true || true));
         assert_eq!(
             eval("\"Hello \" + \"World!\""),
             Object::String("Hello World!".to_string())
@@ -532,7 +597,28 @@ pow(3, 3);
 
     #[test]
     fn logical_operator_is_short_circuit() {
-        // TODO: 論理演算子が短絡評価されることをテストする
+        // 論理演算子が短絡評価されることをテストする
+        assert_eq!(
+            eval(
+                r#"
+        let str = "";
+        let f = |c, ret_val| {
+            str = str + c;
+            ret_val
+        };
+        f("a", false) && f("b", false);
+        f("a", false) && f("b", true);
+        f("a", true) && f("b", false);
+        f("a", true) && f("b", true);
+        f("a", false) || f("b", false);
+        f("a", false) || f("b", true);
+        f("a", true) || f("b", false);
+        f("a", true) || f("b", true);
+        str;
+        "#
+            ),
+            Object::String("aaababababaa".to_string())
+        );
     }
 
     #[test]

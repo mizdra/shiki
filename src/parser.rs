@@ -75,6 +75,7 @@ impl Parser<'_> {
             Token::Plus | Token::Minus => Precedence::Sum,
             Token::Slash | Token::Asterisk => Precedence::Product,
             Token::Lparen => Precedence::Call,
+            Token::AndAnd | Token::OrOr => Precedence::AndAnd,
             _ => Precedence::Lowest,
         }
     }
@@ -228,6 +229,8 @@ impl Parser<'_> {
             Token::LessThanEqual => Infix::LessThanEqual,
             Token::GreaterThan => Infix::GreaterThan,
             Token::GreaterThanEqual => Infix::GreaterThanEqual,
+            Token::AndAnd => Infix::AndAnd,
+            Token::OrOr => Infix::OrOr,
             _ => panic!(),
         };
         let precedence = self.cur_token_precedence();
@@ -349,7 +352,9 @@ impl Parser<'_> {
                 | Token::LessThan
                 | Token::LessThanEqual
                 | Token::GreaterThan
-                | Token::GreaterThanEqual => {
+                | Token::GreaterThanEqual
+                | Token::AndAnd
+                | Token::OrOr => {
                     self.bump();
                     left = self.parse_infix_expr(left)?;
                 }
@@ -522,6 +527,53 @@ false;
         for (actual_stmt, expected_stmt) in program.iter().zip(&expected) {
             assert_eq!(actual_stmt, expected_stmt);
         }
+    }
+
+    #[test]
+    fn test_operator() {
+        let src = r#"
+// prefix
+-1;
+!true;
+
+// infix
+1 + 2;
+1 - 2;
+1 * 2;
+1 / 2;
+1 == 2;
+1 != 2;
+1 >= 2;
+1 > 2;
+1 <= 2;
+1 < 2;
+true && false;
+true || false;
+"#;
+
+        let expected = vec![
+            // prefix
+            "(-1);",
+            "(!true);",
+            // infix
+            "(1 + 2);",
+            "(1 - 2);",
+            "(1 * 2);",
+            "(1 / 2);",
+            "(1 == 2);",
+            "(1 != 2);",
+            "(1 >= 2);",
+            "(1 > 2);",
+            "(1 <= 2);",
+            "(1 < 2);",
+            "(true && false);",
+            "(true || false);",
+        ];
+
+        let program = parse_src(src);
+
+        assert_eq!(program.len(), expected.len());
+        assert_expr(program, expected);
     }
 
     #[test]
