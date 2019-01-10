@@ -1,9 +1,10 @@
+/// shiki 言語のための REPL.
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use shiki::{Error, Evaluator, Lexer, Parser};
 
 fn print_error(error: Error) {
-    eprintln!("\x1b[31m{}\x1b[0m", error);
+    eprintln!("\x1b[31m{}\x1b[0m", error); // 赤色でプロンプトを表示
 }
 
 fn main() {
@@ -11,7 +12,7 @@ fn main() {
     let mut evaluator = Evaluator::new();
 
     loop {
-        let readline = rl.readline("\x1b[34m>> \x1b[0m");
+        let readline = rl.readline("\x1b[34m>> \x1b[0m"); // 青色でプロンプトを表示
         match readline {
             Ok(line) => {
                 let code = line.as_ref();

@@ -1,3 +1,4 @@
+/// プロジェクトのエントリポイント.
 mod error;
 
 pub mod ast;

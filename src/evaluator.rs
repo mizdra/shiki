@@ -1,3 +1,4 @@
+/// shiki 言語の評価器.
 use crate::env::Env;
 use crate::{ast::*, Error, Object, Result};
 use std::cell::RefCell;
@@ -9,17 +10,21 @@ fn error(msg: String) -> Result<Object> {
     Err(Error::RuntimeError(msg))
 }
 
+/// 評価器
 pub struct Evaluator {
     env: Rc<RefCell<Env>>,
 }
 
 impl Evaluator {
+    /// 新しい評価器を返します.
     pub fn new() -> Evaluator {
         Evaluator {
             env: Rc::new(RefCell::new(Env::new(None, HashMap::new()))),
         }
     }
 
+    /// 識別子を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_ident_expr(&mut self, ident: Ident) -> Result<Object> {
         match self.env.borrow_mut().get(&ident) {
             Some(object) => Ok(object),
@@ -30,6 +35,8 @@ impl Evaluator {
         }
     }
 
+    /// リテラルを評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_literal_expr(&mut self, literal: Literal) -> Result<Object> {
         match literal {
             Literal::Int(val) => Ok(Object::Int(val)),
@@ -39,6 +46,8 @@ impl Evaluator {
         }
     }
 
+    /// 前置演算子を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_prefix_expr(&mut self, prefix: Prefix, expr: Expr) -> Result<Object> {
         let object = self.eval_expr(expr)?;
         match prefix {
@@ -66,6 +75,8 @@ impl Evaluator {
         }
     }
 
+    /// 中置演算子を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_infix_expr(&mut self, infix: Infix, left: Expr, right: Expr) -> Result<Object> {
         match infix {
             Infix::AndAnd => {
@@ -191,6 +202,8 @@ impl Evaluator {
         }
     }
 
+    /// if式を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_if_expr(
         &mut self,
         cond: Expr,
@@ -215,10 +228,14 @@ impl Evaluator {
         }
     }
 
+    /// ラムダ式を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_lambda_expr(&mut self, params: Vec<Ident>, body: Expr) -> Result<Object> {
         Ok(Object::Lambda(Rc::clone(&self.env), params, body))
     }
 
+    /// 呼び出し式を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_call_expr(&mut self, callee: Expr, args: Vec<Expr>) -> Result<Object> {
         let callee = self.eval_expr(callee)?;
 
@@ -266,6 +283,8 @@ impl Evaluator {
         Ok(object)
     }
 
+    /// while式を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_while_expr(&mut self, cond: Expr, body: BlockStmt) -> Result<Object> {
         loop {
             let evaluated_cond = self.eval_expr(cond.clone())?;
@@ -287,6 +306,8 @@ impl Evaluator {
         }
     }
 
+    /// 式を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_expr(&mut self, expr: Expr) -> Result<Object> {
         match expr {
             Expr::Ident(ident) => self.eval_ident_expr(ident),
@@ -303,23 +324,31 @@ impl Evaluator {
         }
     }
 
+    /// return文を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_return_stmt(&mut self, expr: Expr) -> Result<Object> {
         let object = self.eval_expr(expr)?;
         Err(Error::ReturnObject(object))
     }
 
+    /// 宣言文を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_let_stmt(&mut self, ident: Ident, expr: Expr) -> Result<Object> {
         let expr = self.eval_expr(expr)?;
         self.env.borrow_mut().add(ident, expr);
         Ok(Object::Unit)
     }
 
+    /// 代入文を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_assign_stmt(&mut self, ident: Ident, expr: Expr) -> Result<Object> {
         let new_object = self.eval_expr(expr)?;
         self.env.borrow_mut().update(ident, new_object)?;
         Ok(Object::Unit)
     }
 
+    /// 文を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_stmt(&mut self, stmt: Stmt) -> Result<Object> {
         match stmt {
             Stmt::Let(ident, expr) => self.eval_let_stmt(ident, expr),
@@ -329,6 +358,8 @@ impl Evaluator {
         }
     }
 
+    /// 複文を評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     fn eval_block_stmt(&mut self, block_stmt: BlockStmt) -> Result<Object> {
         let mut result = Object::Unit;
         for stmt in block_stmt {
@@ -337,6 +368,8 @@ impl Evaluator {
         Ok(result)
     }
 
+    /// プログラムを評価します.
+    /// エラーが発生した場合は即座に評価を中断し, そのエラーを返します.
     pub fn eval(&mut self, program: Program) -> Result<Object> {
         match self.eval_block_stmt(program) {
             Err(Error::ReturnObject(_)) => {

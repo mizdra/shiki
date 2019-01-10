@@ -1,12 +1,16 @@
+/// shiki 言語の構文解析器.
 use crate::{ast::*, Error, Error::*, Lexer, Result, Token};
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
+    /// 現在のトークン
     cur_token: Token,
+    /// 先読みされたトークン (`cur_token` の次のトークン)
     next_token: Token,
 }
 
 impl Parser<'_> {
+    /// 新しい構文解析器を返します.
     pub fn new(lexer: Lexer) -> Parser {
         let mut parser = Parser {
             lexer: lexer,
@@ -18,11 +22,14 @@ impl Parser<'_> {
         parser
     }
 
+    /// トークンを1つ先に進めます.
     fn bump(&mut self) {
         self.cur_token = self.next_token.clone();
         self.next_token = self.lexer.next_token();
     }
 
+    /// `cur_token` が `token` であるならトークンを1つ先に進めます.
+    /// そうでなければエラーを返します.
     fn expect(&mut self, token: Token) -> Result<()> {
         if self.cur_token_is(token.clone()) {
             self.bump();
@@ -35,6 +42,8 @@ impl Parser<'_> {
         }
     }
 
+    /// `next_token` が `token` であるならトークンを1つ先に進めます.
+    /// そうでなければエラーを返します.
     fn expect_next(&mut self, token: Token) -> Result<()> {
         if self.next_token_is(token.clone()) {
             self.bump();
@@ -47,6 +56,8 @@ impl Parser<'_> {
         }
     }
 
+    /// `cur_token` が `token` であるならトークンを1つ先に進めます.
+    /// そうでなければ何もしません.
     fn eat(&mut self, token: Token) -> bool {
         if self.cur_token_is(token) {
             self.bump();
@@ -56,6 +67,8 @@ impl Parser<'_> {
         }
     }
 
+    /// `next_token` が `token` であるならトークンを1つ先に進めます.
+    /// そうでなければ何もしません.
     fn eat_next(&mut self, token: Token) -> bool {
         if self.next_token_is(token) {
             self.bump();
@@ -65,14 +78,19 @@ impl Parser<'_> {
         }
     }
 
+    /// `cur_token` が `token` であるなら `true` を,
+    /// そうでなければ `false` を返します.
     fn cur_token_is(&self, token: Token) -> bool {
         self.cur_token == token
     }
 
+    /// `next_token` が `token` であるなら `true` を,
+    /// そうでなければ `false` を返します.
     fn next_token_is(&self, token: Token) -> bool {
         self.next_token == token
     }
 
+    /// `token` の 優先度を返します.
     fn token_precedence_is(token: &Token) -> Precedence {
         match token {
             Token::Equal | Token::NotEqual => Precedence::Equals,
@@ -86,14 +104,18 @@ impl Parser<'_> {
         }
     }
 
+    /// `cur_token` の 優先度を返します.
     fn cur_token_precedence(&self) -> Precedence {
         Self::token_precedence_is(&self.cur_token)
     }
 
+    /// `next_token` の 優先度を返します.
     fn next_token_precedence(&self) -> Precedence {
         Self::token_precedence_is(&self.next_token)
     }
 
+    /// `cur_token` が `Token::Semicolon` になるまでトークンを読み進めます.
+    /// ただしソースコードの終端に達した場合はそこでトークンの読み進めを終了します.
     fn skip_to_semicolon(&mut self) {
         loop {
             match self.cur_token {
@@ -108,11 +130,11 @@ impl Parser<'_> {
     }
 }
 
-// ident
+// ident, list
 impl Parser<'_> {
     /// 現在のカーソル位置以降を識別子としてパースし,
     /// 識別子の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `Ident` であるとする)
     fn parse_ident(&mut self) -> Result<Ident> {
         if let Token::Ident(ref ident) = self.cur_token {
@@ -124,7 +146,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降をパラメータリストとしてパースし,
     /// 識別子の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `|` または `||` であるとする)
     fn parse_params(&mut self) -> Result<Vec<Ident>> {
         if self.cur_token_is(Token::OrOr) {
@@ -142,7 +164,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を式のリストとしてパースし,
     /// 識別子の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `(` であるとする)
     fn parse_expr_list(&mut self) -> Result<Vec<Expr>> {
         self.bump();
@@ -160,7 +182,7 @@ impl Parser<'_> {
 impl Parser<'_> {
     /// 現在のカーソル位置以降を識別子式としてパースし,
     /// 識別子式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `Ident` であるとする)
     fn parse_ident_expr(&mut self) -> Result<Expr> {
         let ident = self.parse_ident()?;
@@ -169,7 +191,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を整数リテラル式としてパースし,
     /// 整数リテラル式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `Int` であるとする)
     fn parse_int_expr(&mut self) -> Result<Expr> {
         if let Token::Int(int) = self.cur_token {
@@ -181,7 +203,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を文字列式としてパースし,
     /// 文字列式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `String` であるとする)
     fn parse_string_expr(&mut self) -> Result<Expr> {
         if let Token::String(ref string) = self.cur_token {
@@ -193,7 +215,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を真偽値式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `Bool` であるとする)
     fn parse_bool_expr(&mut self) -> Result<Expr> {
         if let Token::Bool(value) = self.cur_token {
@@ -205,7 +227,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を単項演算子の式としてパースし,
     /// 単項演算子の式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `Prefix::*` であるとする)
     fn parse_prefix_expr(&mut self) -> Result<Expr> {
         let prefix = match self.cur_token {
@@ -221,7 +243,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を括弧による式としてパースし,
     /// 括弧による式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `(` であるとする)
     fn parse_grouped_expr(&mut self) -> Result<Expr> {
         self.bump();
@@ -232,9 +254,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置が中置演算子の式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
-    /// 現在のカーソル位置が中置演算子でない場合など,
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `Infix::*` であるとする)
     fn parse_infix_expr(&mut self, left: Expr) -> Result<Expr> {
         let infix = match self.cur_token {
@@ -261,7 +281,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降をラムダ式呼び出しとしてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `(` であるとする)
     fn parse_call_expr(&mut self, left: Expr) -> Result<Expr> {
         let args = self.parse_expr_list()?;
@@ -271,7 +291,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降をブロック式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `{` であるとする)
     fn parse_block_expr(&mut self) -> Result<Expr> {
         let block_stmt = self.parse_block_stmt()?;
@@ -280,7 +300,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降をラムダ式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `|` または `||` であるとする)
     fn parse_lambda_expr(&mut self) -> Result<Expr> {
         let params = self.parse_params()?;
@@ -291,7 +311,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降をif式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `if` であるとする)
     fn parse_if_expr(&mut self) -> Result<Expr> {
         self.bump(); // skip `if`
@@ -319,7 +339,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降をwhile式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `while` であるとする)
     fn parse_while_expr(&mut self) -> Result<Expr> {
         self.bump(); // skip `while`
@@ -331,7 +351,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を式としてパースし,
     /// 式の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     ///
     /// また式はトップダウン構文解析法の1つである
     /// Pratt parserを用いてパースされます.
@@ -399,7 +419,7 @@ impl Parser<'_> {
 impl Parser<'_> {
     /// 現在のカーソル位置以降を宣言文としてパースし,
     /// 宣言文の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `let` であるとする)
     fn parse_let_stmt(&mut self) -> Result<Stmt> {
         self.bump(); // skip `let`
@@ -413,7 +433,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を代入文としてパースし,
     /// 代入文の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `ident`, `next_token` が `=` であるとする)
     fn parse_assign_stmt(&mut self) -> Result<Stmt> {
         let left = self.parse_ident()?;
@@ -426,7 +446,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降をreturn文としてパースし,
     /// return文の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `return` であるとする)
     fn parse_return_stmt(&mut self) -> Result<Stmt> {
         self.bump();
@@ -437,7 +457,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を式文としてパースし,
     /// 式文の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     fn parse_expr_stmt(&mut self) -> Result<Stmt> {
         let expr = self.parse_expr(Precedence::Lowest)?;
         self.eat_next(Token::Semicolon);
@@ -446,7 +466,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を文としてパースし,
     /// 文の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     fn parse_stmt(&mut self) -> Result<Stmt> {
         match self.cur_token {
             Token::Let => self.parse_let_stmt(),
@@ -458,7 +478,7 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降を複文としてパースし,
     /// 文の最後のトークンまでカーソルを進めます.
-    /// パースに失敗した場合は None を返します.
+    /// パースに失敗した場合はエラーを返します.
     /// (ただし `cur_token` が `{` であるとする)
     fn parse_block_stmt(&mut self) -> Result<Vec<Stmt>> {
         self.bump();
@@ -472,6 +492,10 @@ impl Parser<'_> {
 
     /// 現在のカーソル位置以降をプログラムとしてパースし,
     /// プログラムの最後のトークンまでカーソルを進めます.
+    ///
+    /// 途中でパースに失敗した場合はその文をスキップし,
+    /// 次の文以降からパースを再開しすることでエラー復帰します.
+    /// 全ての文のパースが完了したら改めて全てのエラーを返します.
     pub fn parse(&mut self) -> std::result::Result<Program, Vec<Error>> {
         let mut program = vec![];
         let mut errors = vec![];

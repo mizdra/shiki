@@ -1,3 +1,4 @@
+/// shiki 言語の字句解析器.
 use crate::Token;
 
 pub struct Lexer<'a> {
@@ -7,6 +8,7 @@ pub struct Lexer<'a> {
 }
 
 impl Lexer<'_> {
+    /// 新しい字句解析器を返します.
     pub fn new(input: &str) -> Lexer {
         let mut lexer = Lexer {
             input,

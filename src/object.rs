@@ -1,3 +1,4 @@
+/// shiki 言語のオブジェクト (式を評価して得られる値).
 use crate::ast;
 use crate::env::Env;
 use std::cell::RefCell;
@@ -6,14 +7,20 @@ use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
+    /// 整数オブジェクト
     Int(i64),
+    /// 文字列オブジェクト
     String(String),
+    /// 真偽値オブジェクト
     Bool(bool),
+    /// Unit オブジェクト
     Unit,
+    /// Lambda オブジェクト
     Lambda(Rc<RefCell<Env>>, Vec<ast::Ident>, ast::Expr),
 }
 
 impl Object {
+    /// オブジェクトの型の名前を返します.
     pub fn get_type_name(&self) -> &str {
         match self {
             Object::Int(_) => "Int",

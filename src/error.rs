@@ -1,9 +1,12 @@
+/// プロジェクトで扱われるエラー.
 use crate::Object;
 use std::{error, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
+    /// 評価時に発生したエラー
     RuntimeError(String),
+    /// 構文解析時に発生したエラー
     ParseError(String),
     ReturnObject(Object), // 評価器内で戻り値の追跡に利用する
 }

@@ -1,3 +1,4 @@
+/// shiki 言語のトークン.
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]

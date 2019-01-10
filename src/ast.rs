@@ -1,5 +1,7 @@
+/// shiki 言語の AST.
 use std::fmt;
 
+/// 識別子を表す Node
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub struct Ident(pub String);
 
@@ -15,6 +17,7 @@ impl fmt::Display for Ident {
     }
 }
 
+/// 前置演算子を表す Node
 #[derive(PartialEq, Clone, Debug)]
 pub enum Prefix {
     Plus,
@@ -32,6 +35,7 @@ impl fmt::Display for Prefix {
     }
 }
 
+/// 中置演算子を表す Node
 #[derive(PartialEq, Clone, Debug)]
 pub enum Infix {
     Plus,
@@ -67,6 +71,7 @@ impl fmt::Display for Infix {
     }
 }
 
+/// 式を表す Node
 #[derive(PartialEq, Clone, Debug)]
 pub enum Expr {
     Ident(Ident),
@@ -96,6 +101,7 @@ impl fmt::Display for Expr {
     }
 }
 
+/// リテラルを表す Node
 #[derive(PartialEq, Clone, Debug)]
 pub enum Literal {
     Int(i64),
@@ -115,6 +121,7 @@ impl fmt::Display for Literal {
     }
 }
 
+/// 文を表す Node
 #[derive(PartialEq, Clone, Debug)]
 pub enum Stmt {
     Let(Ident, Expr),
@@ -134,10 +141,13 @@ impl fmt::Display for Stmt {
     }
 }
 
+/// 複文を表す Node
 pub type BlockStmt = Vec<Stmt>;
 
+/// プログラムを表す Node
 pub type Program = Vec<Stmt>;
 
+/// 演算子の優先順位
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
 pub enum Precedence {
     Lowest,
