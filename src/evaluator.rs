@@ -70,7 +70,17 @@ impl Evaluator {
         let left = self.eval_expr(left)?;
         let right = self.eval_expr(right)?;
         match (infix, left, right) {
-            (Infix::Plus, Object::Int(l_val), Object::Int(r_val)) => Ok(Object::Int(l_val + r_val)),
+            (Infix::Plus, left, right) => match (left, right) {
+                (Object::Int(l_val), Object::Int(r_val)) => Ok(Object::Int(l_val + r_val)),
+                (Object::String(l_val), Object::String(r_val)) => {
+                    Ok(Object::String(l_val + &r_val))
+                }
+                (left, right) => error(format!(
+                    "no implementation for `{} + {}`",
+                    left.get_type_name(),
+                    right.get_type_name(),
+                )),
+            },
             (Infix::Minus, Object::Int(l_val), Object::Int(r_val)) => {
                 Ok(Object::Int(l_val - r_val))
             }
@@ -319,6 +329,10 @@ mod tests {
         assert_eq!(eval("1 == 2"), Object::Bool(1 == 2));
         assert_eq!(eval("true == true"), Object::Bool(true == true));
         assert_eq!(eval("true == false"), Object::Bool(true == false));
+        assert_eq!(
+            eval("\"Hello \" + \"World!\""),
+            Object::String("Hello World!".to_string())
+        );
         assert_eq!(eval("\"str\" == \"str\""), Object::Bool("str" == "str"));
         assert_eq!(eval("\"str\" == \"\""), Object::Bool("str" == ""));
         assert_eq!(eval("1 != 1"), Object::Bool(1 != 1));
@@ -502,17 +516,18 @@ pow(3, 3);
     #[test]
     fn expression_is_evaluated_from_left_to_right() {
         // 式が左から順に評価されることをテストする
-        // assert_eq!(
-        //     eval(
-        //         r#"
-        // let str = "";
-        // let f = |c| { str = str + c; };
-        // f("a") + f("b") * f("c") + f("d");
-        // f;
-        // "#
-        //     ),
-        //     Object::Int(0)
-        // );
+        assert_eq!(
+            eval(
+                r#"
+        let str = "";
+        let f = |c| { str = str + c; 0 };
+        f("a") + f("b") * f("c") + f("d");
+        (|a, b, c, d| 0)(f("a"), f("b"), f("c"), f("d"));
+        str;
+        "#
+            ),
+            Object::String("abcdabcd".to_string())
+        );
     }
 
     #[test]
@@ -522,7 +537,32 @@ pow(3, 3);
 
     #[test]
     fn if_expression_is_short_circuit() {
-        // TODO: if式が短絡評価されることをテストする
+        // if式が短絡評価されることをテストする
+        assert_eq!(
+            eval(
+                r#"
+        let str = "";
+        let tee = |c| {
+            str = str + c;
+            c
+        };
+        let f = |c| {
+            if c == tee("a") {
+                str = str + "1";
+            } else if c == tee("b") {
+                str = str + "2";
+            } else {
+                str = str + "3";
+            }
+        };
+        f("a");
+        f("b");
+        f("c");
+        str;
+        "#
+            ),
+            Object::String("a1ab2ab3".to_string())
+        );
     }
 
     #[test]
