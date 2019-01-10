@@ -686,7 +686,19 @@ pow(3, 3);
 
     #[test]
     fn while_expression_loop_body() {
-        // TODO: while式が `cond` が `false` になるまで
+        // while式において `cond` が `false` になるまで
         // `body` を繰り返し評価することをテストする
+        assert_eq!(
+            eval(
+                r#"
+        let sum = 0;
+        while sum < 10 {
+            sum = sum + 1;
+        }
+        sum;
+        "#
+            ),
+            Object::Int(10)
+        );
     }
 }
