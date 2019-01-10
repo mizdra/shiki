@@ -320,7 +320,13 @@ impl Parser<'_> {
             Token::String(_) => self.parse_string_expr()?,
             Token::Bool(_) => self.parse_bool_expr()?,
             Token::Bang | Token::Plus | Token::Minus => self.parse_prefix_expr()?,
-            Token::Lparen => self.parse_grouped_expr()?,
+            Token::Lparen => match self.next_token {
+                Token::Rparen => {
+                    self.bump();
+                    Expr::Literal(Literal::Unit)
+                }
+                _ => self.parse_grouped_expr()?,
+            },
             Token::Lbrace => self.parse_block_expr()?,
             Token::Or | Token::OrOr => self.parse_lambda_expr()?,
             Token::If => self.parse_if_expr()?,
@@ -482,6 +488,7 @@ return 2;
 "str";
 true;
 false;
+();
 "#;
 
         let expected = vec![
@@ -489,6 +496,7 @@ false;
             Stmt::Expr(Expr::Literal(Literal::String("str".to_string()))),
             Stmt::Expr(Expr::Literal(Literal::Bool(true))),
             Stmt::Expr(Expr::Literal(Literal::Bool(false))),
+            Stmt::Expr(Expr::Literal(Literal::Unit)),
         ];
 
         let program = parse_src(src);

@@ -97,6 +97,7 @@ pub enum Literal {
     Int(i64),
     String(String),
     Bool(bool),
+    Unit,
 }
 
 impl fmt::Display for Literal {
@@ -105,6 +106,7 @@ impl fmt::Display for Literal {
             Literal::Int(val) => write!(f, "{}", val),
             Literal::String(val) => write!(f, "\"{}\"", val),
             Literal::Bool(val) => write!(f, "{}", val),
+            Literal::Unit => write!(f, "()"),
         }
     }
 }

@@ -35,6 +35,7 @@ impl Evaluator {
             Literal::Int(val) => Ok(Object::Int(val)),
             Literal::String(val) => Ok(Object::String(val)),
             Literal::Bool(val) => Ok(Object::Bool(val)),
+            Literal::Unit => Ok(Object::Unit),
         }
     }
 
@@ -371,7 +372,7 @@ mod tests {
             Object::String("str".to_string())
         );
         assert_eq!(eval("let x = true; x"), Object::Bool(true));
-        // assert_eq!(eval("let x = (); x"), Object::Unit);
+        assert_eq!(eval("let x = (); x"), Object::Unit);
         assert!(if let Object::Lambda(..) = eval("let x = || 0; x") {
             true
         } else {
@@ -383,6 +384,12 @@ mod tests {
         assert_eq!(eval("(|x| x)(1)"), Object::Int(1));
         assert_eq!(eval("(|x, y| x + y)(1, 2)"), Object::Int(3));
         assert_eq!(eval("let z = 3; (|x, y| x + y + z)(1, 2)"), Object::Int(6));
+
+        // ブロック
+        assert_eq!(eval("{}"), Object::Unit);
+        assert_eq!(eval("{ 0 }"), Object::Int(0));
+        assert_eq!(eval("{ 0; 1 }"), Object::Int(1));
+        assert_eq!(eval("{ 0; 1 } + 2"), Object::Int(3));
     }
 
     #[test]
